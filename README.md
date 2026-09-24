@@ -1,59 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Homecare
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Homecare management: patient intake and assessment, staff and driver duty
+scheduling, attendance, medication, vitals, notes, documents and discharge.
 
-## About Laravel
+This is the rebuild of the legacy `homecare-mgmt` app (Laravel 5.7, class-based
+React, DynamoDB). It follows the architecture, UI and conventions of
+`webemr_multitenant`.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Stack
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Layer    | Choice |
+|----------|--------|
+| Backend  | Laravel 12, PHP 8.2+, `mongodb/laravel-mongodb` 5, `php-open-source-saver/jwt-auth` 2 |
+| Frontend | React 18, Vite 7, MUI 5, Redux Toolkit, react-hook-form + yup, TanStack Table, React Router 7 |
+| Data     | MongoDB: one master database plus one database per homecare center |
+| Messaging| Twilio WhatsApp templates (queued), Firebase (video-call push) |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Laravel 12 is used instead of the EMR's 11 because every Laravel 11 release
+now has unpatched security advisories. The application structure is the same.
 
-## Learning Laravel
+## Local setup
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Requirements: PHP 8.2+ with the `mongodb` extension **2.4 or newer**, Composer,
+Node 20+, and a MongoDB server or Atlas cluster.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+composer install
+npm install
+cp .env.example .env        # then fill in DB_DSN (and Twilio/Firebase if needed)
+php artisan key:generate
+php artisan jwt:secret
+npm run dev                 # or: npm run build
+php artisan serve
+php artisan queue:work      # sends WhatsApp and push notifications
+```
 
-## Laravel Sponsors
+Open http://127.0.0.1:8000 and register a homecare center, or migrate the
+legacy data (Phase 2).
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## How it fits together
 
-### Premium Partners
+### Tenancy
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+- **Master database** (`homecare_master`): `users` (every login),
+  `homecares` (the tenant registry), reference data (countries, regions,
+  cities, nationalities, ICD codes, service packages), queue jobs.
+- **Tenant databases** (`homecare_<homecare_id>`): everything else, such as
+  patients, schedules, notes and roles. Collection names match the legacy
+  DynamoDB tables.
+- `ResolveTenant` (route alias `tenant`) switches tenant models to the signed-in
+  user's database, using the `homecare_id` on their account. The tenant is
+  never taken from a client-supplied header.
+- Tenant models extend `App\Models\TenantModel`; master models set
+  `$connection = 'mongodb_master'`.
+- `php artisan homecare:provision {homecare_id}|--all` creates collections,
+  indexes (`App\Tenancy\TenantSchema`) and default roles. It is safe to re-run.
 
-## Contributing
+### Permissions
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- The catalogue lives in code, in `App\Support\Permissions`, with names like
+  `patients.view`. Roles, and the permissions each role holds, are editable per
+  homecare center.
+- **Every route checks its permission on the server**:
+  `->middleware('permission:patients.manage')`. The frontend's `PermissionGate`
+  and `usePermission` only hide UI.
+- `admin` and the homecare owner account always hold every permission.
 
-## Code of Conduct
+### APIs
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- `routes/api.php` → `/api/v1/*`, used by the new web app. Responses use the
+  `{ success, message, data }` envelope.
+- `routes/legacy.php` → `/api/*`: the old mobile app's endpoints, with the same
+  URLs, field names and response shapes. **Never change a legacy contract.** Put
+  improvements under v1; the legacy controller then adapts to the same service.
 
-## Security Vulnerabilities
+### Adding a module
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+1. Model(s) in `app/Models` (tenant data extends `TenantModel`), with indexes in `TenantSchema`.
+2. Business logic in `app/Services`; validation in `app/Http/Requests`.
+3. v1 controller and routes with `permission:` middleware.
+4. Legacy controller and routes, if the mobile app uses the module.
+5. Frontend: `src/api/<module>.js`, pages in `src/components/<module>/`,
+   a slice in `src/store/` if state is shared, a route in `AppRoutes.jsx`, and
+   an entry in `layouts/navConfig.js`.
+6. Tests in `tests/Feature` (v1 and legacy contract) and `tests/Unit`.
 
-## License
+## Deliberate changes from the legacy app
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- The legacy forgot-password flow is disabled. It returned the OTP to the
+  client and let anyone reset any account's password. Admins reset staff
+  passwords until a verified OTP flow is added.
+- Tokens expire: `JWT_TTL` (default 24 h) for the web, and `JWT_LEGACY_TTL`
+  (default 30 days) for legacy mobile logins. Legacy tokens never expired.
+- Homecare IDs are made unique. The legacy slug check could give two
+  centers the same ID.
+- Not ported: the Apurvi screening module, Boardroom, appointment auth and
+  Plivo SMS. These were copied from other projects and are unused.

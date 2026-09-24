@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ReferenceDataController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -19,6 +20,12 @@ Route::prefix('v1')->group(function () {
         Route::post('auth/login', [AuthController::class, 'login']);
         Route::post('auth/register', [AuthController::class, 'register']);
     });
+
+    // Reference data (needed on the registration screen)
+    Route::get('reference/countries', [ReferenceDataController::class, 'countries']);
+    Route::get('reference/nationalities', [ReferenceDataController::class, 'nationalities']);
+    Route::get('reference/regions/{country}', [ReferenceDataController::class, 'regions']);
+    Route::get('reference/cities/{region}', [ReferenceDataController::class, 'cities']);
 
     // Accepts a recently expired token (within JWT_REFRESH_TTL).
     Route::post('auth/refresh', [AuthController::class, 'refresh']);
