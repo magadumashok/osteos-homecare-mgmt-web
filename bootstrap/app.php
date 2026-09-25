@@ -2,12 +2,15 @@
 
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\ResolveTenant;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use PHPOpenSourceSaver\JWTAuth\Http\Middleware\Authenticate;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -36,4 +39,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson()
         );
+
+        // HTTP errors (missing records, abort(403), ...) in the API envelope.
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            $status = $e->getStatusCode();
+            $message = match (true) {
+                $e->getPrevious() instanceof ModelNotFoundException => 'Record not found.',
+                $e->getMessage() !== '' => $e->getMessage(),
+                default => Response::$statusTexts[$status] ?? 'Error',
+            };
+
+            return response()->json(['success' => false, 'message' => $message, 'data' => []], $status, $e->getHeaders());
+        });
     })->create();

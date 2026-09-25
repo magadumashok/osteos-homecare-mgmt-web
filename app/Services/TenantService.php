@@ -25,6 +25,8 @@ class TenantService
 
     private ?string $current = null;
 
+    private ?Homecare $homecare = null;
+
     /**
      * Database name for a homecare_id. Deterministic, lowercase, limited
      * to the characters MongoDB allows, and within Atlas' 38-byte limit
@@ -66,12 +68,29 @@ class TenantService
         DB::purge(self::CONNECTION);
 
         $this->current = $homecareId;
+        $this->homecare = null;
     }
 
     /** The homecare_id the tenant connection currently points at, if any. */
     public function current(): ?string
     {
         return $this->current;
+    }
+
+    /** The current homecare center's registry entry, loaded once per request. */
+    public function homecare(): ?Homecare
+    {
+        if ($this->current === null) {
+            return null;
+        }
+
+        return $this->homecare ??= Homecare::where('homecare_id', $this->current)->first();
+    }
+
+    /** Display name for messages: the center's name, else its homecare_id. */
+    public function displayName(): string
+    {
+        return (string) ($this->homecare()?->name ?: $this->current);
     }
 
     /** Run a callback against another homecare's database, then switch back. */

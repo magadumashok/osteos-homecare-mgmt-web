@@ -18,6 +18,8 @@ final class TenantSchema
      * @var array<string, list<array{0: array<string, int>, 1?: array<string, mixed>}>>
      */
     public const COLLECTIONS = [
+        // Per-homecare sequence numbers (SequenceService); _id is the sequence name.
+        'counters' => [],
         'roles' => [
             [['name' => 1], ['unique' => true]],
         ],
@@ -31,7 +33,7 @@ final class TenantSchema
             [['discharged' => 1]],
         ],
         'patient_guardians' => [
-            [['patient_id' => 1]],
+            [['patient_id' => 1, 'guardian_id' => 1]],
             [['guardian_id' => 1]],
         ],
         'initial_assessment' => [
@@ -39,6 +41,7 @@ final class TenantSchema
         ],
         'staff_duty_schedule' => [
             [['staff_id' => 1, 'date' => 1]],
+            [['staff_id' => 1, 'end_date' => 1]],
             [['patient_id' => 1, 'date' => 1]],
             [['date' => 1, 'start_time' => 1]],
             [['role' => 1]],
@@ -59,7 +62,7 @@ final class TenantSchema
             [['patient_id' => 1, 'date' => 1]],
         ],
         'administer_medications' => [
-            [['patient_id' => 1, 'date' => 1]],
+            [['patient_id' => 1, 'date' => 1, 'medicine_name' => 1]],
         ],
         'patient_vital_signs' => [
             [['patient_id' => 1, 'date' => 1, 'time' => 1]],

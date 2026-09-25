@@ -30,10 +30,10 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'username', 'homecare_id', 'prefix', 'user_type', 'roles',
         'name', 'full_name', 'firstname', 'lastname', 'owner', 'center_id',
-        'email', 'mobile', 'password',
+        'email', 'mobile', 'alternate_mobile', 'password', 'age', 'identity_number',
         'country', 'region', 'city', 'address',
-        'temporary_address', 'permanent_address',
-        'specialization', 'firebase_token',
+        'temporary_address', 'permanent_address', 'works_at',
+        'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
     ];
 
     protected $hidden = [
@@ -58,6 +58,18 @@ class User extends Authenticatable implements JWTSubject
     public function roleNames(): array
     {
         return array_values(array_filter((array) ($this->roles ?? []), 'is_string'));
+    }
+
+    /** The first role, which the legacy app treated as the user's job. */
+    public function primaryRole(): ?string
+    {
+        return $this->roleNames()[0] ?? null;
+    }
+
+    /** Country code of the user's phone number: staff keep it on their address. */
+    public function phoneCountry(): ?string
+    {
+        return $this->country ?: data_get($this->temporary_address, 'country');
     }
 
     public function getJWTIdentifier(): mixed

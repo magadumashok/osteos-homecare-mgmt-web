@@ -44,16 +44,40 @@ return [
     */
 
     'twilio' => [
+        // Appended to fees in messages ("250 AED").
+        'currency' => env('HOMECARE_CURRENCY', 'AED'),
         'sid' => env('TWILIO_AUTH_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),
         'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID', 'MG054c1d19925425983d571629fd0c581d'),
         'templates' => [
+            'patient_registered' => env('TWILIO_TPL_PATIENT_REGISTERED', 'HX0042acbf8a6ac95bf82bfe337cc1aa10'),
             'staff_duty_with_package' => env('TWILIO_TPL_STAFF_DUTY_WITH_PACKAGE', 'HX6f9897d8aacccd963ce7318dc85a22f4'),
             'patient_duty_with_package' => env('TWILIO_TPL_PATIENT_DUTY_WITH_PACKAGE', 'HX40072c58813176c6d64b7cbc42711d60'),
             'staff_duty' => env('TWILIO_TPL_STAFF_DUTY', 'HXeadddbab85790b02c8f571b357575147'),
             'patient_duty' => env('TWILIO_TPL_PATIENT_DUTY', 'HX30980aa123e2785aa21c6e1f7572e444'),
+            'patient_duty_rescheduled' => env('TWILIO_TPL_PATIENT_DUTY_RESCHEDULED', 'HX5fcd73ce4d1374210f6648a105e3740a'),
+            'driver_duty' => env('TWILIO_TPL_DRIVER_DUTY', 'HX1d1f68f5c2e6cd111315a9cc917ddc33'),
+            'driver_duty_rescheduled' => env('TWILIO_TPL_DRIVER_DUTY_RESCHEDULED', 'HX84d91dc968afd6604e8399dc85205f26'),
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Patient documents
+    |--------------------------------------------------------------------------
+    |
+    | Uploads (documents, IDs, specimen images, signatures, audio notes) go
+    | to this disk under "<homecare_id>/...". Stored URLs are built from
+    | `url`, which the legacy app served through a CDN in front of the
+    | "homecarecenters" bucket.
+    |
+    */
+
+    'documents' => [
+        'disk' => env('DOCUMENTS_DISK', 's3'),
+        'url' => env('DOCUMENTS_URL', 'https://hccsdoc.osteos.io'),
+        'max_upload_kb' => (int) env('DOCUMENTS_MAX_UPLOAD_KB', 20480),
     ],
 
 ];

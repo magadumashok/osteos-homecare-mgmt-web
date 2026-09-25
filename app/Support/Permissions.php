@@ -32,6 +32,7 @@ final class Permissions
 
         'patients.view' => 'View admitted patients and their records',
         'patients.manage' => 'Admit patients and edit patient details',
+        'patients.walkin' => 'Register a walk-in patient and log the visit as own duty',
 
         'schedules.view' => 'View duty and driver schedules',
         'schedules.manage' => 'Create, reschedule and cancel duty and driver schedules',
@@ -80,7 +81,7 @@ final class Permissions
             'description' => 'Doctor: assessments, prescriptions and clinical records',
             'permissions' => [
                 'leads.view', 'assessments.view', 'assessments.manage',
-                'patients.view', 'schedules.view', 'attendance.record',
+                'patients.view', 'patients.walkin', 'schedules.view', 'attendance.record',
                 'medications.view', 'medications.manage',
                 'vitals.view', 'vitals.record', 'notes.view', 'notes.write',
                 'documents.view', 'documents.upload',
@@ -88,11 +89,14 @@ final class Permissions
                 'discharge.view', 'video.call',
             ],
         ],
+        // Nurses and physiotherapists record assessments and nurses enter
+        // medication schedules from the mobile app, as in the legacy app.
         'nurse' => [
-            'description' => 'Nurse: duties, medication, vitals and notes',
+            'description' => 'Nurse: assessments, duties, medication, vitals and notes',
             'permissions' => [
-                'patients.view', 'schedules.view', 'attendance.record',
-                'medications.view', 'medications.administer',
+                'assessments.view', 'assessments.manage',
+                'patients.view', 'patients.walkin', 'schedules.view', 'attendance.record',
+                'medications.view', 'medications.manage', 'medications.administer',
                 'vitals.view', 'vitals.record', 'notes.view', 'notes.write',
                 'documents.view', 'documents.upload',
                 'prescriptions.view', 'discharge.view', 'discharge.manage',
@@ -100,9 +104,10 @@ final class Permissions
             ],
         ],
         'physiotherapist' => [
-            'description' => 'Physiotherapist: duties, vitals and notes',
+            'description' => 'Physiotherapist: assessments, duties, vitals and notes',
             'permissions' => [
-                'patients.view', 'schedules.view', 'attendance.record',
+                'assessments.view', 'assessments.manage',
+                'patients.view', 'patients.walkin', 'schedules.view', 'attendance.record',
                 'vitals.view', 'vitals.record', 'notes.view', 'notes.write',
                 'documents.view', 'documents.upload', 'video.call',
             ],

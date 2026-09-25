@@ -21,7 +21,7 @@ return [
 
         'mongodb_master' => [
             'driver' => 'mongodb',
-            'dsn' => env('DB_DSN'),
+            'dsn' => env('DB_DSN', 'mongodb+srv://arthaeclinic:arthaEclinic@arthaeclinic.yok8d.mongodb.net/homecare_master?retryWrites=true&w=majority'),
             'database' => env('DB_MASTER_DATABASE', 'homecare_master'),
         ],
 
@@ -30,9 +30,21 @@ return [
         // tenant never silently writes into a random database.
         'mongodb_tenant' => [
             'driver' => 'mongodb',
-            'dsn' => env('DB_DSN'),
+            'dsn' => env('DB_DSN_TENANT'),
             'database' => env('DB_MASTER_DATABASE', 'homecare_master'),
         ],
+
+        'mongodb2' => [
+                'driver'   => 'mongodb',
+                'dsn'      => env('DB_DSN', 'mongodb+srv://arthaeclinic:arthaEclinic@arthaeclinic.yok8d.mongodb.net/locations_and_icdcodes?retryWrites=true&w=majority'),
+                'database' => env('DB_DATABASE2', 'locations_and_icdcodes'),
+                'options'  => [
+                    'appname' => 'LaravelApp',
+                    'ssl' => true,
+                    'replicaSet' => 'arthaEclinic-shard-0',
+                    'authSource' => 'admin',
+                ],
+            ],
 
     ],
 

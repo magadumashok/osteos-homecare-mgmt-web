@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AdministerMedication;
+use App\Models\MedicationSchedule;
+use App\Models\PatientGuardian;
+use App\Models\User;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+
+class MedicationService
+{
+    public function __construct(
+        private readonly UserDirectoryService $users,
+        private readonly FileStorageService $files,
+    ) {}
+
+    public function addSchedule(array $data, User $enteredBy): MedicationSchedule
+    {
+        return MedicationSchedule::create([
+            ...$data,
+            'entered_by' => $data['entered_by'] ?? $enteredBy->username,
+        ]);
+    }
+
+    /** A patient's medication schedule with the name of who entered each line. */
+    public function scheduleFor(string $patientId): Collection
+    {
+        $medicines = MedicationSchedule::where('patient_id', $patientId)->orderBy('date', 'desc')->get();
+        $staff = $this->users->byUsername($medicines->pluck('entered_by'));
+
+        return $medicines->each(function (MedicationSchedule $medicine) use ($staff) {
+            if ($name = $staff->get($medicine->entered_by)?->name) {
+                $medicine->nurse_name = $name;
+            }
+        });
+    }
+
+    /**
+     * The day's medicines for a nurse to tick off: each scheduled medicine
+     * with whichever sessions were already given.
+     */
+    public function checklist(string $patientId, string $date): Collection
+    {
+        $medicines = MedicationSchedule::where('patient_id', $patientId)->where('date', $date)->get();
+
+        $given = AdministerMedication::where('patient_id', $patientId)
+            ->where('date', $date)
+            ->get()
+            ->keyBy('medicine_name');
+
+        return $medicines->each(function (MedicationSchedule $medicine) use ($given) {
+            foreach (AdministerMedication::SESSIONS as $session) {
+                if ($entry = $given->get($medicine->medicine_name)?->{$session}) {
+                    $medicine->{$session} = $entry;
+                }
+            }
+        });
+    }
+
+    /** What was given on a date, with each session's guardian name and signature. */
+    public function administeredOn(string $patientId, string $date): Collection
+    {
+        $records = AdministerMedication::where('patient_id', $patientId)->where('date', $date)->get();
+        $guardians = PatientGuardian::where('patient_id', $patientId)->get()->keyBy('guardian_id');
+
+        return $records->each(function (AdministerMedication $record) use ($guardians) {
+            foreach (AdministerMedication::SESSIONS as $session) {
+                $entry = $record->{$session};
+                $guardian = is_array($entry) ? $guardians->get($entry['guardian_id'] ?? null) : null;
+
+                if ($guardian) {
+                    $record->{$session} = [
+                        ...$entry,
+                        'guardian_name' => $guardian->guardian_name,
+                        'guardian_signature' => $guardian->guardian_signature,
+                    ];
+                }
+            }
+        });
+    }
+
+    /**
+     * Record a medicine given in one session. The witnessing guardian is
+     * either an existing one (`guardian_id`) or a new one (`guardian_name`
+     * plus a base64 PNG `image` of their signature).
+     */
+    public function recordAdministration(array $data, User $nurse): AdministerMedication
+    {
+        $session = $data['medicine_type'] ?? null;
+        if (! in_array($session, AdministerMedication::SESSIONS, true)) {
+            throw ValidationException::withMessages(['medicine_type' => 'Choose morning, afternoon, evening or night.']);
+        }
+
+        $guardianId = $this->guardianFor($data);
+
+        $record = AdministerMedication::firstOrNew([
+            'patient_id' => $data['patient_id'],
+            'medicine_name' => $data['medicine_name'],
+            'date' => $data['date'],
+        ]);
+
+        // The legacy app wrote repeat sessions to a field literally named
+        // "medicine_type"; each session now goes to its own field.
+        $record->{$session} = [
+            'nurse_id' => $data['nurse_id'] ?? $nurse->username,
+            'nurse_name' => $data['nurse_name'] ?? $nurse->name,
+            'given_date' => $data['medicine_date'] ?? null,
+            'given_time' => $data['medicine_time'] ?? null,
+            'guardian_id' => $guardianId,
+        ];
+        $record->save();
+
+        return $record;
+    }
+
+    public function guardians(string $patientId): Collection
+    {
+        return PatientGuardian::where('patient_id', $patientId)->get();
+    }
+
+    private function guardianFor(array $data): string
+    {
+        if (empty($data['guardian_name'])) {
+            return (string) ($data['guardian_id'] ?? '');
+        }
+
+        $handle = preg_replace('/\s+/', '', strtolower($data['guardian_name']));
+        $guardianId = $handle.str_pad((string) random_int(1, 99999), 5, '0', STR_PAD_LEFT);
+
+        if (! empty($data['image'])) {
+            $signature = $this->files->storeBase64(
+                $data['image'],
+                "patients/{$data['patient_id']}/guardiansignature/{$guardianId}",
+                Str::slug($handle).'_signature.png',
+            );
+
+            PatientGuardian::create([
+                'patient_id' => $data['patient_id'],
+                'guardian_id' => $guardianId,
+                'guardian_name' => $data['guardian_name'],
+                'guardian_signature' => $signature,
+            ]);
+        }
+
+        return $guardianId;
+    }
+}

@@ -85,6 +85,23 @@ legacy data (Phase 2).
    an entry in `layouts/navConfig.js`.
 6. Tests in `tests/Feature` (v1 and legacy contract) and `tests/Unit`.
 
+### Shared services
+
+Code that the legacy controllers repeated lives in one place:
+
+| Service | Replaces |
+|---------|----------|
+| `WhatsAppService` + `SendWhatsAppTemplate` job | inline Twilio calls in every scheduling endpoint (now queued) |
+| `FileStorageService` | copy-to-`public/`, push-to-S3, delete-folder in every upload endpoint |
+| `SequenceService` | `count() + 1` lead and patient numbers (atomic counters in `counters`) |
+| `UserDirectoryService` | per-row user lookups (one `whereIn` per list) and unscoped role queries |
+| `ScheduleConflictService` | three copies of the nested overlap checks |
+| `ReferenceDataService::internationalNumber()` | country phone-code lookups before every message |
+| `App\Support\TimeFormat` | the 24h → 12h conversion copied into each notification |
+
+Domain services (`PatientService`, `DutyScheduleService`, `MedicationService`,
+...) are shared by the v1 and legacy controllers.
+
 ## Deliberate changes from the legacy app
 
 - The legacy forgot-password flow is disabled. It returned the OTP to the
@@ -95,4 +112,20 @@ legacy data (Phase 2).
 - Homecare IDs are made unique. The legacy slug check could give two
   centers the same ID.
 - Not ported: the Apurvi screening module, Boardroom, appointment auth and
-  Plivo SMS. These were copied from other projects and are unused.
+  Plivo SMS. These were copied from other projects and are unused. Plivo
+  was the only channel for sign-in/out, pickup/drop, discharge and new
+  staff username messages, so those notifications are no longer sent.
+- The Redis patient cache is gone. Its keys were shared by every center
+  except two, so one center could be served another's patients.
+- Queries on users (master database) are always scoped to the homecare.
+  Several legacy queries picked "the admin" or a driver from any center.
+- Endpoints that updated "every field in the request" (patient details,
+  assessments, reschedules, vitals) now only accept the model's fields.
+- Recording a second medication session for a medicine on the same day
+  wrote to a field named `medicine_type`; it now goes to its session.
+- `get-patients-vital-signs-bydate` and `get-staff-notes-by-date` ignored
+  the date and returned everything; they now filter by it.
+- Walk-in patients got a hard-coded `+91` prefix; the country's code is used.
+- Uploaded file names are sanitised before they become storage keys.
+- New staff store their ID number as `identity_number` (legacy `id`
+  clashes with MongoDB's `id` alias for `_id`).
