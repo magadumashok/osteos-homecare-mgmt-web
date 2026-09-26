@@ -84,7 +84,7 @@ class AuthController extends Controller
 
         return [
             'user' => $user,
-            'homecare' => Homecare::where('homecare_id', $user->homecare_id)->first(['homecare_id', 'name', 'city', 'country']),
+            'homecare' => Homecare::where('homecare_id', $user->homecare_id)->first(['homecare_id', 'name', 'owner', 'email', 'mobile', 'address', 'city', 'region', 'country', 'center_id']),
             'permissions' => $this->permissions->for($user),
         ];
     }

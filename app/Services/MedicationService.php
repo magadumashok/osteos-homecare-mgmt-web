@@ -32,7 +32,7 @@ class MedicationService
         $staff = $this->users->byUsername($medicines->pluck('entered_by'));
 
         return $medicines->each(function (MedicationSchedule $medicine) use ($staff) {
-            if ($name = $staff->get($medicine->entered_by)?->name) {
+            if ($name = $staff->get($medicine->entered_by)?->displayName()) {
                 $medicine->nurse_name = $name;
             }
         });
@@ -106,7 +106,7 @@ class MedicationService
         // "medicine_type"; each session now goes to its own field.
         $record->{$session} = [
             'nurse_id' => $data['nurse_id'] ?? $nurse->username,
-            'nurse_name' => $data['nurse_name'] ?? $nurse->name,
+            'nurse_name' => $data['nurse_name'] ?? $nurse->displayName(),
             'given_date' => $data['medicine_date'] ?? null,
             'given_time' => $data['medicine_time'] ?? null,
             'guardian_id' => $guardianId,

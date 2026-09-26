@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ExposesMongoId;
 use App\Services\TenantService;
 use MongoDB\Laravel\Eloquent\Model;
 
@@ -15,6 +16,8 @@ use MongoDB\Laravel\Eloquent\Model;
  */
 abstract class TenantModel extends Model
 {
+    use ExposesMongoId;
+
     protected $connection = 'mongodb_tenant';
 
     protected static function booted(): void

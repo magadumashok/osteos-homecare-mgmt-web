@@ -74,9 +74,11 @@ return [
     |
     */
 
+    // Without an S3 bucket (local development) files go to the public disk,
+    // served from APP_URL/storage (run `php artisan storage:link` once).
     'documents' => [
-        'disk' => env('DOCUMENTS_DISK', 's3'),
-        'url' => env('DOCUMENTS_URL', 'https://hccsdoc.osteos.io'),
+        'disk' => env('DOCUMENTS_DISK', env('AWS_BUCKET') ? 's3' : 'public'),
+        'url' => env('DOCUMENTS_URL', env('AWS_BUCKET') ? 'https://hccsdoc.osteos.io' : rtrim((string) env('APP_URL', 'http://localhost'), '/').'/storage'),
         'max_upload_kb' => (int) env('DOCUMENTS_MAX_UPLOAD_KB', 20480),
     ],
 

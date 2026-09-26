@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ExposesMongoId;
 use MongoDB\Laravel\Eloquent\Model;
 
 /**
@@ -10,6 +11,8 @@ use MongoDB\Laravel\Eloquent\Model;
  */
 class IcdCode extends Model
 {
+    use ExposesMongoId;
+
     protected $connection = 'mongodb_master';
 
     protected $table = 'icd_codes';

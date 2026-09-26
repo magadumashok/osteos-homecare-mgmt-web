@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useSelector } from "react-redux";
 
 const EMPTY = [];
@@ -20,25 +21,29 @@ const EMPTY = [];
 const usePermission = () => {
     const permissions = useSelector((s) => s.auth.permissions) ?? EMPTY;
 
-    /** Single permission check */
-    const can = (permission) => {
-        if (!permission) return true;   // no gate = always open
-        return permissions.includes(permission);
-    };
+    // Stable between renders (until the permissions change), so pages can
+    // use the helpers as effect and memo dependencies.
+    return useMemo(() => {
+        /** Single permission check */
+        const can = (permission) => {
+            if (!permission) return true;   // no gate = always open
+            return permissions.includes(permission);
+        };
 
-    /** True if the user holds ANY of the listed permissions */
-    const canAny = (list = []) => {
-        if (!list.length) return true;
-        return list.some((p) => permissions.includes(p));
-    };
+        /** True if the user holds ANY of the listed permissions */
+        const canAny = (list = []) => {
+            if (!list.length) return true;
+            return list.some((p) => permissions.includes(p));
+        };
 
-    /** True only if the user holds ALL of the listed permissions */
-    const canAll = (list = []) => {
-        if (!list.length) return true;
-        return list.every((p) => permissions.includes(p));
-    };
+        /** True only if the user holds ALL of the listed permissions */
+        const canAll = (list = []) => {
+            if (!list.length) return true;
+            return list.every((p) => permissions.includes(p));
+        };
 
-    return { can, canAny, canAll, permissions };
+        return { can, canAny, canAll, permissions };
+    }, [permissions]);
 };
 
 export default usePermission;

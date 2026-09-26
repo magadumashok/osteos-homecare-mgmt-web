@@ -39,7 +39,7 @@ class DriverScheduleService
         $staff = $this->users->byUsername($trips->pluck('staff_id'));
 
         return $trips->each(function (DriverSchedule $trip) use ($staff) {
-            $trip->staff_name = $staff->get($trip->staff_id)?->name;
+            $trip->staff_name = $staff->get($trip->staff_id)?->displayName();
             $trip->staff_role = $staff->get($trip->staff_id)?->primaryRole();
         });
     }
@@ -51,8 +51,8 @@ class DriverScheduleService
         $people = $this->users->byUsername([$driverId, ...$trips->pluck('staff_id')]);
 
         return $trips->each(function (DriverSchedule $trip) use ($people) {
-            $trip->driver_name = $people->get($trip->driver_id)?->name;
-            $trip->staff_name = $people->get($trip->staff_id)?->name;
+            $trip->driver_name = $people->get($trip->driver_id)?->displayName();
+            $trip->staff_name = $people->get($trip->staff_id)?->displayName();
             $trip->staff_role = $people->get($trip->staff_id)?->primaryRole();
         });
     }

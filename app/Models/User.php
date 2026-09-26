@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\NativeArray;
+use App\Models\Concerns\ExposesMongoId;
 use Illuminate\Notifications\Notifiable;
 use MongoDB\Laravel\Auth\User as Authenticatable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
@@ -16,7 +18,7 @@ use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
  */
 class User extends Authenticatable implements JWTSubject
 {
-    use Notifiable;
+    use ExposesMongoId, Notifiable;
 
     /** User types stored in `user_type`. */
     public const TYPE_HOMECARE = 'homecare';
@@ -30,7 +32,7 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'username', 'homecare_id', 'prefix', 'user_type', 'roles',
         'name', 'full_name', 'firstname', 'lastname', 'owner', 'center_id',
-        'email', 'mobile', 'alternate_mobile', 'password', 'age', 'identity_number',
+        'email', 'mobile', 'alternate_mobile', 'password', 'age', 'identity_type', 'identity_number',
         'country', 'region', 'city', 'address',
         'temporary_address', 'permanent_address', 'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
@@ -45,7 +47,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'password' => 'hashed',
-            'roles' => 'array',
+            'roles' => NativeArray::class,
         ];
     }
 
@@ -58,6 +60,17 @@ class User extends Authenticatable implements JWTSubject
     public function roleNames(): array
     {
         return array_values(array_filter((array) ($this->roles ?? []), 'is_string'));
+    }
+
+    /**
+     * The person's name. The owner account's `name` is the center's name
+     * (the legacy shape), so its person is in `owner`.
+     */
+    public function displayName(): string
+    {
+        $name = $this->user_type === self::TYPE_HOMECARE ? ($this->owner ?: $this->name) : $this->name;
+
+        return (string) ($name ?: $this->username);
     }
 
     /** The first role, which the legacy app treated as the user's job. */

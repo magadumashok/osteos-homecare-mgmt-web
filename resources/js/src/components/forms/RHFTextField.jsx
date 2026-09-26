@@ -3,15 +3,17 @@ import { Controller } from "react-hook-form";
 import TextField from "@mui/material/TextField";
 
 // Extra props (autoComplete, inputProps, placeholder, disabled…) pass through to TextField.
-const RHFTextField = ({ name, control, label, type = "text", rules, ...rest }) => (
+// A `helperText` shows until the field has an error. Date and time inputs keep their label raised.
+const RHFTextField = ({ name, control, label, type = "text", rules, helperText, ...rest }) => (
   <Controller
     name={name}
     control={control}
     rules={rules}
-    render={({ field, fieldState: { error } }) => (
+    render={({ field: { ref, ...field }, fieldState: { error } }) => (
       <TextField
         {...field}
         {...rest}
+        inputRef={ref} // lets the form focus the first invalid field
         value={field.value ?? ""}
         type={type}
         label={label}
@@ -19,7 +21,8 @@ const RHFTextField = ({ name, control, label, type = "text", rules, ...rest }) =
         variant="outlined"
         margin="normal"
         error={!!error}
-        helperText={error?.message}
+        helperText={error?.message ?? helperText}
+        InputLabelProps={["date", "time", "datetime-local"].includes(type) ? { shrink: true } : rest.InputLabelProps}
         InputProps={{
         classes: {
         notchedOutline: "input-modern label-modern"

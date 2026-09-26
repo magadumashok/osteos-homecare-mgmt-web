@@ -62,7 +62,7 @@ class StaffService
         }
 
         return User::create([
-            ...array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'alternate_mobile', 'age', 'temporary_address', 'password'])),
+            ...array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'alternate_mobile', 'age', 'identity_type', 'temporary_address', 'permanent_address', 'password'])),
             'identity_number' => $data['identity_number'] ?? $data['id'] ?? null,
             'username' => $username,
             'homecare_id' => $this->tenants->current(),
@@ -86,7 +86,7 @@ class StaffService
             }
         }
 
-        $changes = array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'alternate_mobile', 'age', 'temporary_address']));
+        $changes = array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'alternate_mobile', 'age', 'identity_type', 'temporary_address', 'permanent_address']));
         if (array_key_exists('identity_number', $data) || array_key_exists('id', $data)) {
             $changes['identity_number'] = $data['identity_number'] ?? $data['id'];
         }

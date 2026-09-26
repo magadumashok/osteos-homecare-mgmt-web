@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ExposesMongoId;
 use MongoDB\Laravel\Eloquent\Model;
 
 /**
@@ -13,6 +14,8 @@ use MongoDB\Laravel\Eloquent\Model;
  */
 class Homecare extends Model
 {
+    use ExposesMongoId;
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_SUSPENDED = 'suspended';

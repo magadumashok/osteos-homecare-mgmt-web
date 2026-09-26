@@ -25,6 +25,14 @@ class ReferenceDataService
     /** Country names the legacy clients sent instead of codes. */
     private const COUNTRY_ALIASES = ['India' => 'IN', 'USA' => 'US', 'UAE' => 'AE'];
 
+    /** Dialling codes used when the country documents have no `phone_code`. */
+    private const DIALLING_CODES = [
+        'AE' => '+971', 'SA' => '+966', 'OM' => '+968', 'QA' => '+974', 'KW' => '+965', 'BH' => '+973',
+        'IN' => '+91', 'PK' => '+92', 'BD' => '+880', 'LK' => '+94', 'NP' => '+977', 'PH' => '+63',
+        'EG' => '+20', 'JO' => '+962', 'LB' => '+961', 'GH' => '+233', 'LR' => '+231', 'NG' => '+234',
+        'KE' => '+254', 'ZA' => '+27', 'GB' => '+44', 'US' => '+1', 'CA' => '+1',
+    ];
+
     public function countries(): Collection
     {
         return Cache::remember('ref:countries', self::TTL, fn () => Country::orderBy('label')->get());
@@ -93,11 +101,30 @@ class ReferenceDataService
             return '';
         }
 
-        return Cache::remember("ref:phone_code:{$country}", self::TTL, function () use ($country) {
-            $code = self::COUNTRY_ALIASES[$country] ?? $country;
+        $key = "ref:phone_code:{$country}";
+        if (($cached = Cache::get($key)) !== null && $cached !== '') {
+            return $cached;
+        }
 
-            return (string) Country::where('code', $code)->orWhere('name', $country)->value('phone_code');
-        });
+        $record = Country::where('code', self::COUNTRY_ALIASES[$country] ?? $country)
+            ->orWhere('name', $country)
+            ->orWhere('label', $country)
+            ->first(['code', 'phone_code']);
+
+        // Some country collections have no phone_code; fall back to the ISO code.
+        $isoCode = strtoupper((string) ($record->code ?? self::COUNTRY_ALIASES[$country] ?? $country));
+        $phoneCode = (string) ($record->phone_code ?? '') ?: (self::DIALLING_CODES[$isoCode] ?? '');
+
+        if ($phoneCode !== '' && ! str_starts_with($phoneCode, '+')) {
+            $phoneCode = '+'.$phoneCode;
+        }
+
+        // An unknown country is not cached, so adding it later takes effect at once.
+        if ($phoneCode !== '') {
+            Cache::put($key, $phoneCode, self::TTL);
+        }
+
+        return $phoneCode;
     }
 
     /** A local number with the country's dialling prefix, or null without a number. */

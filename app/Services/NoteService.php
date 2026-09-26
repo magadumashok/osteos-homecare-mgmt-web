@@ -93,7 +93,7 @@ class NoteService
 
         return $notes->each(function (StaffNote $note) use ($authors) {
             if ($author = $authors->get($note->staff_id)) {
-                $note->nurse_name = $author->name;
+                $note->nurse_name = $author->displayName();
                 $note->role_name = ucfirst((string) $author->primaryRole());
             }
         });
@@ -105,14 +105,14 @@ class NoteService
             return [
                 'patient_id' => $data['patient_id'],
                 'nurse_id' => $data['nurse_id'] ?? $author->username,
-                'nurse_name' => $data['nurse_name'] ?? $author->name,
+                'nurse_name' => $data['nurse_name'] ?? $author->displayName(),
             ];
         }
 
         return [
             'patient_id' => $data['patient_id'],
             'staff_id' => $data['staff_id'] ?? $author->username,
-            'staff_name' => $data['staff_name'] ?? $author->name,
+            'staff_name' => $data['staff_name'] ?? $author->displayName(),
             'staff_role' => $data['staff_role'] ?? $author->primaryRole(),
         ];
     }

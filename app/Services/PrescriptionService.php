@@ -45,7 +45,7 @@ class PrescriptionService
         foreach (self::PATIENT_FIELDS as $field) {
             $prescription->{$field} = $patient?->{$field};
         }
-        $prescription->doctor_name = $doctor?->name;
+        $prescription->doctor_name = $doctor?->displayName();
         $prescription->doctor_signature = $doctor?->digitalsignature;
 
         return $prescription;

@@ -211,7 +211,7 @@ class PatientService
             ->map(function (DischargedPatient $record) use ($patients, $staff) {
                 return [
                     ...$patients[$record->patient_id]->toArray(),
-                    'discharged_by' => $staff->get($record->discharged_by)?->name,
+                    'discharged_by' => $staff->get($record->discharged_by)?->displayName(),
                     'discharged_date' => $record->date,
                     'discharged_time' => $record->time,
                     'discharged_summary' => $record->summary,

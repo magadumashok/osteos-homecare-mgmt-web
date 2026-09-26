@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\NativeArray;
+
 /**
  * A named set of permissions, defined per homecare center.
  * Permission names come from App\Support\Permissions.
@@ -15,7 +17,7 @@ class Role extends TenantModel
     protected function casts(): array
     {
         return [
-            'permissions' => 'array',
+            'permissions' => NativeArray::class,
             'system' => 'boolean',
         ];
     }

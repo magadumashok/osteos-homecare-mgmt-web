@@ -50,7 +50,7 @@ class VitalSignController extends Controller
             ...$request->validated(),
             'patient_id' => $this->patients->findOrFail($username)->username,
             'nurse_id' => $user->username,
-            'nurse_name' => $user->name,
+            'nurse_name' => $user->displayName(),
         ]);
 
         return $this->response(true, 'Vital signs recorded.', 201, $reading);

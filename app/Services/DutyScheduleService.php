@@ -184,9 +184,12 @@ class DutyScheduleService
         return $this->withStaff($this->withPatients($duties), 'name');
     }
 
+    /** A patient's duties, newest first, with the staff member's name. */
     public function forPatient(string $patientId): Collection
     {
-        return StaffDutySchedule::where('patient_id', $patientId)->orderBy('date', 'desc')->get();
+        $duties = StaffDutySchedule::where('patient_id', $patientId)->orderBy('date', 'desc')->get();
+
+        return $this->withStaff($duties, 'staff_name');
     }
 
     /** Attended (or upcoming) sessions of a patient with one role. */
@@ -211,7 +214,7 @@ class DutyScheduleService
     public function attendance(string $staffId, string $patientId): array
     {
         return [
-            'staff_name' => $this->users->find($staffId)?->name,
+            'staff_name' => $this->users->find($staffId)?->displayName(),
             'patient_name' => $this->patients->find($patientId)?->patient_name,
             'attendance_data' => StaffDutySchedule::where('staff_id', $staffId)
                 ->where('patient_id', $patientId)
@@ -236,7 +239,7 @@ class DutyScheduleService
     private function notifyAssignment(StaffDutySchedule $duty, Patient $patient, ?User $driver, bool $rescheduled): void
     {
         $staff = $this->users->find($duty->staff_id);
-        $staffName = $staff?->name;
+        $staffName = $staff?->displayName();
         $patientMobile = $patient->mobile ?: 'not provided';
         $time = TimeFormat::to12Hour($duty->start_time);
         $homecare = $this->tenants->displayName();
@@ -290,6 +293,6 @@ class DutyScheduleService
     {
         $staff = $this->users->byUsername($duties->pluck('staff_id'));
 
-        return $duties->each(fn (StaffDutySchedule $duty) => $duty->{$as} = $staff->get($duty->staff_id)?->name);
+        return $duties->each(fn (StaffDutySchedule $duty) => $duty->{$as} = $staff->get($duty->staff_id)?->displayName());
     }
 }
