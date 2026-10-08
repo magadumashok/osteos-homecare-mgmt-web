@@ -45,7 +45,7 @@ return [
 
     'twilio' => [
         // Appended to fees in messages ("250 AED").
-        'currency' => env('HOMECARE_CURRENCY', 'AED'),
+        'currency' => env('HOMECARE_CURRENCY', 'Rs'),
         'sid' => env('TWILIO_AUTH_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),

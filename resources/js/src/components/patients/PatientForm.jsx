@@ -95,7 +95,7 @@ const PatientForm = () => {
                         <Grid item xs={12} sm={6}><RHFTextField name="patient_name" control={control} label="Patient name *" rules={{ required: "Required" }} /></Grid>
                         <Grid item xs={6} sm={3}><RHFSelect name="gender" control={control} label="Gender" options={GENDERS} /></Grid>
                         <Grid item xs={6} sm={3}><RHFTextField name="age" control={control} label="Age" type="number" /></Grid>
-                        <Grid item xs={6} sm={3}><RHFTextField name="date_of_birth" control={control} label="Date of birth" type="date" /></Grid>
+                        {/* <Grid item xs={6} sm={3}><RHFTextField name="date_of_birth" control={control} label="Date of birth" type="date" /></Grid>
                         <Grid item xs={6} sm={3}><RHFTextField name="weight" control={control} label="Weight (kg)" type="number" /></Grid>
                         <Grid item xs={12} sm={3}>
                             {nationalities.length
@@ -103,7 +103,7 @@ const PatientForm = () => {
                                 : <RHFTextField name="nationality" control={control} label="Nationality" />}
                         </Grid>
                         <Grid item xs={12} sm={3}><RHFTextField name="id_no" control={control} label="ID number" /></Grid>
-                        <Grid item xs={12} sm={6}><RHFTextField name="insurance_name" control={control} label="Insurance" /></Grid>
+                        <Grid item xs={12} sm={6}><RHFTextField name="insurance_name" control={control} label="Insurance" /></Grid> */}
                     </Grid>
                 </Card>
 

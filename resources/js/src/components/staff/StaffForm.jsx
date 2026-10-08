@@ -34,12 +34,17 @@ const StaffForm = () => {
 
     const { control, handleSubmit, reset, setValue, setError, getValues } = useForm({
         defaultValues: {
-            name: "", userID: "", role: "", roles: [], mobile: "", alternate_mobile: "", email: "", age: "",
-            password: "", confirm_password: "", identity_type: "", identity_number: "",
-            temporary_address: EMPTY_ADDRESS, permanent_address: EMPTY_ADDRESS,
+            name: "", 
+            // userID: "",
+            role: "", roles: [], mobile: "", 
+            // alternate_mobile: "",
+            email: "", age: "",
+            password: "", confirm_password: "", 
+            // identity_type: "", identity_number: "",
+            address: EMPTY_ADDRESS
         },
     });
-    const userID = useWatch({ control, name: "userID" });
+    // const userID = useWatch({ control, name: "userID" });
     const role = useWatch({ control, name: "role" });
 
     useEffect(() => {
@@ -56,11 +61,12 @@ const StaffForm = () => {
                 if (!active) return;
                 setMember(u);
                 reset({
-                    name: u.name ?? "", mobile: u.mobile ?? "", alternate_mobile: u.alternate_mobile ?? "",
+                    name: u.name ?? "", mobile: u.mobile ?? "", 
+                    // alternate_mobile: u.alternate_mobile ?? "",
                     email: u.email ?? "", age: u.age ?? "", roles: u.roles ?? [],
-                    identity_type: u.identity_type ?? "", identity_number: u.identity_number ?? "",
-                    temporary_address: { ...EMPTY_ADDRESS, ...(u.temporary_address ?? {}) },
-                    permanent_address: { ...EMPTY_ADDRESS, ...(u.permanent_address ?? {}) },
+                    // identity_type: u.identity_type ?? "", identity_number: u.identity_number ?? "",
+                    address: { ...EMPTY_ADDRESS, ...(u.address ?? {}) },
+                    // permanent_address: { ...EMPTY_ADDRESS, ...(u.permanent_address ?? {}) },
                 });
             })
             .catch((e) => active && toast.error(errorMessage(e)))
@@ -72,13 +78,17 @@ const StaffForm = () => {
     const letter = useMemo(() => ({ admin: "a", nurse: "n", physiotherapist: "p", doctor: "d", staff: "s", maintenance: "m", transport: "t" }[role] ?? role?.[0] ?? ""), [role]);
 
     const onSubmit = async (values) => {
+        console.log("staff form on submit",values)
         const payload = {
             ...compact({
-                name: values.name, mobile: digits(values.mobile), alternate_mobile: digits(values.alternate_mobile), email: values.email,
-                age: values.age, identity_type: values.identity_type, identity_number: values.identity_number,
+                name: values.name, mobile: digits(values.mobile), 
+                // alternate_mobile: digits(values.alternate_mobile), 
+                email: values.email,
+                age: values.age, 
+                // identity_type: values.identity_type, identity_number: values.identity_number,
             }),
-            temporary_address: compact(values.temporary_address),
-            permanent_address: compact(sameAddress ? values.temporary_address : values.permanent_address),
+            address: compact(values.address),
+            // permanent_address: compact(sameAddress ? values.temporary_address : values.permanent_address),
         };
 
         setSaving(true);
@@ -90,7 +100,9 @@ const StaffForm = () => {
                 }
                 toast.success("Staff member updated.");
             } else {
-                const created = await staff.create({ ...payload, role: values.role, userID: values.userID, password: values.password });
+                const created = await staff.create({ ...payload, role: values.role, 
+                    // userID: values.userID, 
+                    password: values.password });
                 toast.success(`${created.name} added. Username: ${created.username}`);
             }
             navigate("/staff");
@@ -127,7 +139,7 @@ const StaffForm = () => {
                         <Grid item xs={12} sm={6}>
                             <RHFTextField name="mobile" control={control} label="Mobile (without country code) *" rules={{ required: "Mobile is required", pattern: { value: /^\+?[\d\s-]{6,20}$/, message: "Enter the number using digits" } }} />
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        {/* <Grid item xs={12} sm={6}>
                             <RHFTextField name="alternate_mobile" control={control} label="Alternate mobile" />
                         </Grid>
                         <Grid item xs={12} sm={6}>
@@ -135,7 +147,7 @@ const StaffForm = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <RHFTextField name="identity_number" control={control} label="ID number" />
-                        </Grid>
+                        </Grid> */}
                     </Grid>
                 </Card>
 
@@ -151,7 +163,7 @@ const StaffForm = () => {
                             <Grid item xs={12} sm={6}>
                                 <RHFSelect name="role" control={control} label="Role *" options={roleOptions} rules={{ required: "Choose a role" }} />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            {/* <Grid item xs={12} sm={6}>
                                 <RHFTextField
                                     name="userID"
                                     control={control}
@@ -159,7 +171,7 @@ const StaffForm = () => {
                                     rules={{ required: "User ID is required", pattern: { value: /^[A-Za-z0-9_-]+$/, message: "Letters, digits, - or _" } }}
                                     helperText={userID ? `Username will be …${letter}${userID.toLowerCase()}` : "Used to build the username"}
                                 />
-                            </Grid>
+                            </Grid> */}
                             <Grid item xs={12} sm={6}>
                                 <RHFTextField name="password" control={control} label="Password *" type="password" autoComplete="new-password" rules={{ required: "Password is required", minLength: { value: 8, message: "At least 8 characters" } }} helperText="At least 8 characters" />
                             </Grid>
@@ -170,11 +182,11 @@ const StaffForm = () => {
                     )}
                 </Card>
 
-                <Card label="Current address" style={{ marginTop: 16 }}>
-                    <AddressFields control={control} setValue={setValue} prefix="temporary_address" required />
+                <Card label="Address" style={{ marginTop: 16 }}>
+                    <AddressFields control={control} setValue={setValue} prefix="address" required />
                 </Card>
 
-                <Card
+                {/* <Card
                     label="Permanent address"
                     style={{ marginTop: 16 }}
                     actions={
@@ -185,7 +197,7 @@ const StaffForm = () => {
                     }
                 >
                     {!sameAddress && <AddressFields control={control} setValue={setValue} prefix="permanent_address" />}
-                </Card>
+                </Card> */}
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24 }}>
                     <Button variant="secondary" onClick={() => navigate(-1)} disabled={saving}>Cancel</Button>

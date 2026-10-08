@@ -30,7 +30,9 @@ class StaffController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required', 'mobile' => 'required', 'password' => 'required|min:6',
-            'role' => 'required', 'userID' => 'required|alpha_dash', 'temporary_address' => 'nullable|array',
+            'role' => 'required', 
+            // 'userID' => 'required|alpha_dash', 
+            'address' => 'nullable|array',
         ]);
         if ($validator->fails()) {
             return $this->response(false, 'Something went wrong', 500, $validator->messages()->toJson());
@@ -38,7 +40,7 @@ class StaffController extends Controller
 
         try {
             $this->staff->create($request->only([
-                'name', 'mobile', 'password', 'role', 'userID', 'email', 'age', 'id', 'alternate_mobile', 'temporary_address',
+                'name', 'mobile', 'password', 'role', 'email', 'age', 'address',
             ]));
         } catch (ValidationException $e) {
             // The legacy web form checks these exact messages.
@@ -56,7 +58,7 @@ class StaffController extends Controller
     public function edit(string $id, ReferenceDataService $reference): JsonResponse
     {
         $user = $this->staff->findOrFail($id);
-        $address = (array) ($user->temporary_address ?? []);
+        $address = (array) ($user->address ?? []);
 
         return $this->response(true, '', 200, [
             'userdata' => $user->toArray(),
@@ -69,7 +71,7 @@ class StaffController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         try {
-            $this->staff->update($this->staff->findOrFail($id), $request->only(['name', 'mobile', 'email', 'age', 'id', 'temporary_address']));
+            $this->staff->update($this->staff->findOrFail($id), $request->only(['name', 'mobile', 'email', 'age',  'address']));
         } catch (ValidationException) {
             return $this->response(true, 'mobile number already exists', 200);
         }
