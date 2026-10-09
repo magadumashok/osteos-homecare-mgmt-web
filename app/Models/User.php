@@ -31,10 +31,10 @@ class User extends Authenticatable implements JWTSubject
 
     protected $fillable = [
         'username', 'homecare_id', 'prefix', 'user_type', 'roles',
-        'name', 'full_name', 'firstname', 'lastname', 'owner', 'center_id',
-        'email', 'mobile', 'alternate_mobile', 'password', 'age', 'identity_type', 'identity_number',
+        'name', 'full_name', 'firstname', 'lastname', 'owner', 
+        'email', 'mobile', 'alternate_mobile', 'password', 'age', 
         'country', 'region', 'city', 'address',
-        'temporary_address', 'permanent_address', 'works_at',
+        'address',  'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
     ];
 
@@ -82,7 +82,7 @@ class User extends Authenticatable implements JWTSubject
     /** Country code of the user's phone number: staff keep it on their address. */
     public function phoneCountry(): ?string
     {
-        return $this->country ?: data_get($this->temporary_address, 'country');
+        return $this->country ?: data_get($this->address, 'country');
     }
 
     public function getJWTIdentifier(): mixed

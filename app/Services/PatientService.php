@@ -65,7 +65,7 @@ class PatientService
     {
         $patient = Patient::create([
             ...$this->withServices($data),
-            'username' => $this->nextUsername(),
+            'username' => $this->nextUsername($data),
             'mobile' => $this->reference->internationalNumber($data['country'] ?? null, $data['mobile'] ?? null),
             'address_link' => $this->mapsLink($data),
             'terms_conditions' => false,
@@ -96,7 +96,7 @@ class PatientService
 
         $patient = Patient::create([
             ...$this->withServices($patientData),
-            'username' => $this->nextUsername(),
+            'username' => $this->nextUsername($patientData),
             'mobile' => $this->reference->internationalNumber($country, $patientData['mobile'] ?? null),
             'terms_conditions' => false,
             'consent_form' => false,
@@ -225,13 +225,15 @@ class PatientService
      * app used count()+1, which repeated numbers after concurrent or
      * deleted registrations; the counter starts from the current count.
      */
-    public function nextUsername(): string
+    public function nextUsername(array $data): string
     {
         $prefix = substr((string) $this->tenants->current(), 0, 3).'p';
 
         do {
-            $number = $this->sequences->next('patient', fn () => Patient::count());
-            $username = $prefix.sprintf('%03d', $number);
+            // $number = $this->sequences->next('patient', fn () => Patient::count());
+            // $username = $prefix.sprintf('%03d', $number);
+            $username = $prefix.sprintf('%03d', $data['mobile']);
+
         } while (Patient::where('username', $username)->exists());
 
         return $username;

@@ -31,7 +31,7 @@ export const fmtTime = (value) => {
     return `${h % 12 || 12}:${m[2]} ${h >= 12 ? "pm" : "am"}`;
 };
 
-export const fmtMoney = (value, currency = "AED") => {
+export const fmtMoney = (value, currency = "Rs") => {
     if (value === null || value === undefined || value === "") return "—";
     const n = Number(value);
     return Number.isFinite(n) ? `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}` : String(value);

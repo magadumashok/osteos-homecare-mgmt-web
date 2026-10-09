@@ -55,24 +55,24 @@ class StaffService
         }
 
         $letter = self::ROLE_LETTERS[$role] ?? substr($role, 0, 1);
-        $username = Str::slug(substr((string) $this->tenants->current(), 0, 3).$letter.$data['userID']);
+        $username = Str::slug(substr((string) $this->tenants->current(), 0, 3).$letter.$data['mobile']);
 
         if (User::where('username', $username)->exists()) {
-            throw ValidationException::withMessages(['userID' => "The username {$username} is already taken."]);
+            throw ValidationException::withMessages(['mobile' => "The username {$username} is already taken."]);
         }
 
         return User::create([
-            ...array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'alternate_mobile', 'age', 'identity_type', 'temporary_address', 'permanent_address', 'password'])),
+            ...array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'age', 'address', 'address', 'password'])),
             'identity_number' => $data['identity_number'] ?? $data['id'] ?? null,
             'username' => $username,
             'homecare_id' => $this->tenants->current(),
             'user_type' => User::TYPE_STAFF,
             'roles' => [$role],
-            'works_at' => [
-                'user_id' => $this->tenants->current(),
-                'type' => User::TYPE_HOMECARE,
-                'type_name' => $this->tenants->displayName(),
-            ],
+            // 'works_at' => [
+            //     'user_id' => $this->tenants->current(),
+            //     'type' => User::TYPE_HOMECARE,
+            //     'type_name' => $this->tenants->displayName(),
+            // ],
         ]);
     }
 
@@ -86,7 +86,7 @@ class StaffService
             }
         }
 
-        $changes = array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'alternate_mobile', 'age', 'identity_type', 'temporary_address', 'permanent_address']));
+        $changes = array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'age', 'address']));
         if (array_key_exists('identity_number', $data) || array_key_exists('id', $data)) {
             $changes['identity_number'] = $data['identity_number'] ?? $data['id'];
         }
