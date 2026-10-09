@@ -33,6 +33,11 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:10,1')->group(function () {
         Route::post('auth/login', [AuthController::class, 'login']);
         Route::post('auth/register', [AuthController::class, 'register']);
+
+        // One-time codes (OTP login and forgot password)
+        Route::post('auth/otp/send', [AuthController::class, 'sendOtp']);
+        Route::post('auth/otp/login', [AuthController::class, 'otpLogin']);
+        Route::post('auth/password/reset', [AuthController::class, 'resetPassword']);
     });
 
     // Reference data (needed on the registration screen)
@@ -54,6 +59,8 @@ Route::prefix('v1')->group(function () {
         // Own account: no permission needed beyond being signed in.
         Route::put('account/firebase-token', [AccountController::class, 'updateFirebaseToken']);
         Route::post('account/feedback', [AccountController::class, 'feedback']);
+        Route::put('account/password', [AuthController::class, 'changePassword']);
+        Route::post('account/profile-image', [AccountController::class, 'saveProfileImage']);
         Route::post('account/signature', [AccountController::class, 'saveSignature'])->middleware('permission:prescriptions.write');
         Route::post('video-calls', [AccountController::class, 'videoCall'])->middleware('permission:video.call');
         Route::get('staff/directory', [StaffController::class, 'directory']);

@@ -36,6 +36,16 @@ class AuthService
             return null;
         }
 
+        return $this->issue($user, $ttl);
+    }
+
+    /**
+     * Sign in a user whose identity was already proven (e.g. by OTP).
+     *
+     * @return array{token: string, user: User, expires_in: int}
+     */
+    public function issue(User $user, ?int $ttl = null): array
+    {
         $guard = $this->guard();
         if ($ttl !== null) {
             $guard->setTTL($ttl);
@@ -46,6 +56,12 @@ class AuthService
             'user' => $user,
             'expires_in' => $guard->factory()->getTTL() * 60,
         ];
+    }
+
+    public function changePassword(User $user, string $password): void
+    {
+        // The model's "hashed" cast hashes it.
+        $user->update(['password' => $password]);
     }
 
     public function logout(): void
