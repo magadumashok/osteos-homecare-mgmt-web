@@ -53,8 +53,10 @@ return [
         'templates' => [
             'patient_registered' => env('TWILIO_TPL_PATIENT_REGISTERED', 'HX0042acbf8a6ac95bf82bfe337cc1aa10'),
             'staff_duty_with_package' => env('TWILIO_TPL_STAFF_DUTY_WITH_PACKAGE', 'HX6f9897d8aacccd963ce7318dc85a22f4'),
+            'staff_duty_with_package_no_driver' => env('TWILIO_TPL_STAFF_DUTY_WITH_PACKAGE_NO_DRIVER', 'HXd66ab367652cfda8e7890afee28a84c0'),
             'patient_duty_with_package' => env('TWILIO_TPL_PATIENT_DUTY_WITH_PACKAGE', 'HX40072c58813176c6d64b7cbc42711d60'),
             'staff_duty' => env('TWILIO_TPL_STAFF_DUTY', 'HXeadddbab85790b02c8f571b357575147'),
+            'staff_duty_no_driver'  => env('TWILIO_TPL_STAFF_DUTY_NO_DRIVER', 'HX51ae52dcf3ce5f2a2be024daf5e26c30'),
             'patient_duty' => env('TWILIO_TPL_PATIENT_DUTY', 'HX30980aa123e2785aa21c6e1f7572e444'),
             'patient_duty_rescheduled' => env('TWILIO_TPL_PATIENT_DUTY_RESCHEDULED', 'HX5fcd73ce4d1374210f6648a105e3740a'),
             'driver_duty' => env('TWILIO_TPL_DRIVER_DUTY', 'HX1d1f68f5c2e6cd111315a9cc917ddc33'),

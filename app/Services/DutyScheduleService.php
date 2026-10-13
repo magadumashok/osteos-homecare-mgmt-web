@@ -253,6 +253,7 @@ class DutyScheduleService
             $this->whatsapp->send($this->reference->userNumber($staff), 'staff_duty_with_package', [...$toStaff, ...$package]);
             $this->whatsapp->send($patient->mobile, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty_with_package', $rescheduled ? $toPatient : [...$toPatient, ...$package]);
         } else {
+            \Log::info("notify patient and staff");
             $this->whatsapp->send($this->reference->userNumber($staff), 'staff_duty', $toStaff);
             $this->whatsapp->send($patient->mobile, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty', $toPatient);
         }
