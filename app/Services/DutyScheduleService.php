@@ -243,18 +243,22 @@ class DutyScheduleService
         $patientMobile = $patient->mobile ?: 'not provided';
         $time = TimeFormat::to12Hour($duty->start_time);
         $homecare = $this->tenants->displayName();
-        $driverName = $driver?->name ?? $duty->driver;
+        $driverName = trim((string) ($driver?->name ?? $duty->driver));
+        $hasDriver = $driverName !== '';
 
-        $toStaff = [$staffName, $patient->patient_name, $duty->date, $time, $patient->address, $patient->address_link, $patientMobile, $driverName];
+        // The no-driver templates have no driver placeholder.
+        $toStaff = [$staffName, $patient->patient_name, $duty->date, $time, $patient->address, $patient->address_link, $patientMobile];
+        if ($hasDriver) {
+            $toStaff[] = $driverName;
+        }
         $toPatient = [$patient->patient_name, $staffName, $homecare, $duty->date, $time];
 
         if ($patient->service_package) {
             $package = [$patient->service_package, trim($patient->fees.' '.config('homecare.twilio.currency'))];
-            $this->whatsapp->send($this->reference->userNumber($staff), 'staff_duty_with_package', [...$toStaff, ...$package]);
+            $this->whatsapp->send($this->reference->userNumber($staff), $hasDriver ? 'staff_duty_with_package' : 'staff_duty_with_package_no_driver', [...$toStaff, ...$package]);
             $this->whatsapp->send($patient->mobile, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty_with_package', $rescheduled ? $toPatient : [...$toPatient, ...$package]);
         } else {
-            \Log::info("notify patient and staff");
-            $this->whatsapp->send($this->reference->userNumber($staff), 'staff_duty', $toStaff);
+            $this->whatsapp->send($this->reference->userNumber($staff), $hasDriver ? 'staff_duty' : 'staff_duty_no_driver', $toStaff);
             $this->whatsapp->send($patient->mobile, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty', $toPatient);
         }
 
