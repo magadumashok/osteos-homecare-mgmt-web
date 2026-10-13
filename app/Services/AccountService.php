@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Feedback;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 /** Things users do to their own account. */
@@ -30,6 +31,16 @@ class AccountService
         ]);
 
         return $fileName;
+    }
+
+    /** The user's profile photo, shown on their profile and in the staff directory. */
+    public function saveProfileImage(User $user, UploadedFile $image): string
+    {
+        $user->update([
+            'profile_image' => $this->files->storeUpload($image, "users/{$user->username}/profile"),
+        ]);
+
+        return $user->profile_image;
     }
 
     public function submitFeedback(User $user, string $feedback): Feedback

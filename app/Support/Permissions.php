@@ -116,6 +116,16 @@ final class Permissions
             'description' => 'Driver: own schedule, pickups and drops',
             'permissions' => ['schedules.view', 'attendance.record'],
         ],
+        // In the legacy app these roles could only see their profile and
+        // call colleagues, which needs no permission.
+        'staff' => [
+            'description' => 'General staff: own profile and staff directory',
+            'permissions' => [],
+        ],
+        'maintenance' => [
+            'description' => 'Maintenance staff: own profile and staff directory',
+            'permissions' => [],
+        ],
     ];
 
     /**

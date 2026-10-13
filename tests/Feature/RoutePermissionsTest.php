@@ -26,6 +26,8 @@ class RoutePermissionsTest extends TestCase
         'api/v1/auth/logout',
         'api/v1/account/firebase-token',
         'api/v1/account/feedback',
+        'api/v1/account/password',
+        'api/v1/account/profile-image',
         'api/v1/staff/directory',
         'api/v1/reference/service-packages',
         'api/v1/reference/icd-codes',

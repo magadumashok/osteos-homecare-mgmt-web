@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rules;
 use App\Services\AccountService;
 use App\Services\VideoCallService;
 use App\Traits\ResponseTrait;
@@ -33,6 +34,15 @@ class AccountController extends Controller
         $this->account->saveSignature($request->user(), $image);
 
         return $this->response(true, 'Signature saved.', 200, ['digitalsignature' => $request->user()->digitalsignature]);
+    }
+
+    public function saveProfileImage(Request $request): JsonResponse
+    {
+        $image = $request->validate(['image' => ['required', 'image', Rules::upload()]])['image'];
+
+        $url = $this->account->saveProfileImage($request->user(), $image);
+
+        return $this->response(true, 'Profile photo updated.', 200, ['profile_image' => $url]);
     }
 
     public function feedback(Request $request): JsonResponse
