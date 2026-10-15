@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+     'msg91' => [
+        'auth_key'      => env('MSG91_AUTH_KEY'),
+        'sender_id'    => env('MSG91_SENDER_ID'),
+        'template_id'  => env('MSG91_TEMPLATE_ID'),
+    ],
+
 ];
