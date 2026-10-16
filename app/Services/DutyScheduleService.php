@@ -24,6 +24,7 @@ class DutyScheduleService
         private readonly ScheduleConflictService $conflicts,
         private readonly ReferenceDataService $reference,
         private readonly WhatsAppService $whatsapp,
+        private readonly PushNotificationService $push,
     ) {}
 
     public function findOrFail(string $id): StaffDutySchedule
@@ -33,7 +34,8 @@ class DutyScheduleService
 
     /**
      * Schedule a duty, book the driver (when one is named) and notify the
-     * staff member, patient and driver on WhatsApp.
+     * staff member, patient and driver on WhatsApp (staff and driver also
+     * get a push notification).
      *
      * @return array{duty: StaffDutySchedule, driver_schedule: ?DriverSchedule, driver_duplicate: bool}
      *
@@ -100,10 +102,14 @@ class DutyScheduleService
             }
         }
 
-        return $duties->map(fn (array $duty) => StaffDutySchedule::create([
+        $created = $duties->map(fn (array $duty) => StaffDutySchedule::create([
             ...$duty,
             ...StaffDutySchedule::freshAttendance(),
         ]));
+
+        $this->pushSeries($created);
+
+        return $created;
     }
 
     /**
@@ -267,6 +273,46 @@ class DutyScheduleService
                 $driver->name, $staffName, $duty->date, $time, $patient->address, $patient->address_link, $patientMobile,
             ]);
         }
+
+        $type = $rescheduled ? 'duty_rescheduled' : 'duty_assigned';
+        $when = "on {$duty->date} at {$time}";
+        $data = ['type' => $type, 'dutyId' => (string) $duty->getKey(), 'date' => $duty->date];
+
+        $this->push->notify(
+            $staff,
+            $rescheduled ? 'Duty rescheduled' : 'New duty',
+            "{$patient->patient_name} {$when}.",
+            $data,
+        );
+
+        if ($driver) {
+            $this->push->notify(
+                $driver,
+                $rescheduled ? 'Trip rescheduled' : 'New trip',
+                "Drive {$staffName} to {$patient->patient_name} {$when}.",
+                [...$data, 'type' => $rescheduled ? 'trip_rescheduled' : 'trip_assigned'],
+            );
+        }
+    }
+
+    /** One push for a whole series, not one per duty. */
+    private function pushSeries(Collection $duties): void
+    {
+        $first = $duties->first();
+        if (! $first) {
+            return;
+        }
+
+        $patient = $this->patients->find($first->patient_id);
+        $count = $duties->count();
+        $range = $count > 1 ? "from {$first->date} to {$duties->last()->date}" : "on {$first->date}";
+
+        $this->push->notify(
+            $this->users->find($first->staff_id),
+            $count > 1 ? "{$count} new duties" : 'New duty',
+            trim(($patient?->patient_name ?? '').' '.$range.' at '.TimeFormat::to12Hour($first->start_time)).'.',
+            ['type' => 'duty_assigned', 'date' => $first->date],
+        );
     }
 
     private function packageOf(Patient $patient): array

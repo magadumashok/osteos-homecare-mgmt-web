@@ -12,8 +12,21 @@ class AccountService
 {
     public function __construct(private readonly FileStorageService $files) {}
 
+    /**
+     * One device per account. A device that changes accounts without
+     * signing out (e.g. offline) stops getting the previous account's pushes.
+     */
     public function updateFirebaseToken(User $user, ?string $token): void
     {
+        // The app sends its token on every sign-in and launch; usually unchanged.
+        if ($user->firebase_token === $token) {
+            return;
+        }
+
+        if ($token) {
+            User::where('firebase_token', $token)->where('_id', '!=', $user->getKey())->update(['firebase_token' => null]);
+        }
+
         $user->update(['firebase_token' => $token]);
     }
 
