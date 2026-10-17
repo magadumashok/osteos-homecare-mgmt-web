@@ -49,9 +49,6 @@ return [
         'sid' => env('TWILIO_AUTH_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),
-        // Plain SMS (one-time codes). Without it, SMS go through the messaging service.
-        'sms_from' => env('TWILIO_SMS_FROM'),
-        'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID', 'MG054c1d19925425983d571629fd0c581d'),
         'templates' => [
             'patient_registered' => env('TWILIO_TPL_PATIENT_REGISTERED', 'HX0042acbf8a6ac95bf82bfe337cc1aa10'),
             'staff_duty_with_package' => env('TWILIO_TPL_STAFF_DUTY_WITH_PACKAGE', 'HX6f9897d8aacccd963ce7318dc85a22f4'),

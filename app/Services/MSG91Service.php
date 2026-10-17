@@ -2,142 +2,71 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /**
- * MSG91Service
+ * Sends one-time codes by SMS through MSG91's OTP API (the same request
+ * the EMR app uses). Codes are generated and checked by OtpService; this
+ * only delivers them, so MSG91's own verify endpoint is not used.
  *
- * Drop-in replacement for PlivoService.
- * Same sendOtp() and verifyOtp() signatures — no changes needed
- * in NewAuthController or anywhere else.
- *
- * .env variables required:
- *   MSG91_AUTH_KEY=your_auth_key_here
+ * .env:
+ *   MSG91_AUTH_KEY=...
  *   MSG91_SENDER_ID=Osteos
- *   MSG91_TEMPLATE_ID=69f1b3bd6ddc2865fb0db612
+ *   MSG91_TEMPLATE_ID=...            (approved OTP template, with the ##OTP## variable)
+ *   MSG91_DEFAULT_COUNTRY_CODE=91    (for numbers saved without a country code)
  */
 class MSG91Service
 {
-    private string $authKey;
-    private string $senderId;
-    private string $templateId;
+    private const API_URL = 'https://control.msg91.com/api/v5/otp';
 
-    private const OTP_LENGTH   = 6;
-    private const OTP_TTL      = 300; // 5 minutes in seconds
-    private const MAX_ATTEMPTS = 3;
-    private const LOCK_TTL     = 300; // lock for 5 minutes after max attempts
-
-    private const MSG91_API_URL = 'https://control.msg91.com/api/v5/otp';
-
-    public function __construct()
+    public function configured(): bool
     {
-        $this->authKey    = config('services.msg91.auth_key');
-        $this->senderId   = config('services.msg91.sender_id', 'Osteos');
-        $this->templateId = config('services.msg91.template_id');
+        return filled(config('services.msg91.auth_key')) && filled(config('services.msg91.template_id'));
     }
 
-    // =========================================================================
-    // Send OTP
-    // =========================================================================
-    public function sendOtp(string $mobile): array
+    /**
+     * @param  string  $mobile  international (+919876543210) or local (9876543210)
+     * @param  int  $expiryMinutes  shown in the template when it has an expiry variable
+     *
+     * @throws RuntimeException when MSG91 does not accept the message
+     */
+    public function sendOtp(string $mobile, string $otp, int $expiryMinutes = 5): void
     {
-        // Locked after too many wrong attempts
-        if (Cache::has("otp_locked:{$mobile}")) {
-            return [
-                'success' => false,
-                'message' => 'Too many attempts. Please try again after 5 minutes.',
-            ];
-        }
+        $authKey = (string) config('services.msg91.auth_key');
 
-        // Generate 6-digit OTP
-        $otp = str_pad(random_int(100000, 999999), self::OTP_LENGTH, '0', STR_PAD_LEFT);
-
-        // Store in cache with 5 min TTL
-        Cache::put("otp:{$mobile}", $otp, self::OTP_TTL);
-        Cache::put("otp_attempts:{$mobile}", 0, self::OTP_TTL);
-
-        try {
-            $response = Http::withHeaders([
-                'authkey'      => $this->authKey,
-                'accept'       => 'application/json',
-                'content-type' => 'application/json',
-            ])->post(self::MSG91_API_URL, [
-                'mobile'      => '91' . $mobile, // MSG91 requires country code prefix
-                'authkey'     => $this->authKey,
-                'template_id' => $this->templateId,
-                'otp'         => $otp,
-                'otp_length'  => self::OTP_LENGTH,
-                'otp_expiry'  => self::OTP_TTL / 60, // minutes
-                'sender'      => $this->senderId,
+        $response = Http::timeout(15)
+            ->withHeaders(['authkey' => $authKey, 'accept' => 'application/json'])
+            ->post(self::API_URL, [
+                'mobile' => $this->msisdn($mobile),
+                'authkey' => $authKey,
+                'template_id' => config('services.msg91.template_id'),
+                'otp' => $otp,
+                'otp_length' => strlen($otp),
+                'otp_expiry' => $expiryMinutes,
+                'sender' => config('services.msg91.sender_id') ?: 'Osteos',
             ]);
 
-            $body = $response->json();
+        $body = $response->json() ?? [];
 
-            Log::info("[MSG91Service] sendOtp response for {$mobile}", $body ?? []);
-
-            if ($response->successful() && isset($body['type']) && $body['type'] === 'success') {
-                return ['success' => true, 'message' => 'OTP sent successfully.'];
-            }
-
-            $errorMsg = $body['message'] ?? $body['error'] ?? 'Failed to send OTP.';
-            Log::warning("[MSG91Service] sendOtp failed for {$mobile}: {$errorMsg}");
-
-            return ['success' => false, 'message' => $errorMsg];
-
-        } catch (\Exception $e) {
-            Log::error("[MSG91Service] Exception for {$mobile}: " . $e->getMessage());
-            return ['success' => false, 'message' => 'SMS service unavailable. Please try again.'];
+        if (! $response->successful() || ($body['type'] ?? null) !== 'success') {
+            throw new RuntimeException('MSG91: '.($body['message'] ?? $body['error'] ?? "HTTP {$response->status()}"));
         }
     }
 
-    // =========================================================================
-    // Verify OTP (against cache — no extra MSG91 API call needed)
-    // =========================================================================
-    public function verifyOtp(string $mobile, string $otp): array
+    /** MSG91 wants digits only, country code first, no "+". */
+    private function msisdn(string $mobile): string
     {
-        if (Cache::has("otp_locked:{$mobile}")) {
-            return [
-                'success' => false,
-                'message' => 'Too many attempts. Please try again after 5 minutes.',
-            ];
+        $international = str_starts_with(trim($mobile), '+');
+        $digits = preg_replace('/\D/', '', $mobile);
+
+        if ($international) {
+            return $digits;
         }
 
-        $cachedOtp = Cache::get("otp:{$mobile}");
+        $digits = ltrim($digits, '0');
+        $countryCode = (string) config('services.msg91.default_country_code', '91');
 
-        if (!$cachedOtp) {
-            return [
-                'success' => false,
-                'message' => 'OTP expired or not requested. Please request a new OTP.',
-            ];
-        }
-
-        if ($cachedOtp !== $otp) {
-            $attempts = Cache::increment("otp_attempts:{$mobile}");
-
-            if ($attempts >= self::MAX_ATTEMPTS) {
-                Cache::put("otp_locked:{$mobile}", true, self::LOCK_TTL);
-                Cache::forget("otp:{$mobile}");
-                Cache::forget("otp_attempts:{$mobile}");
-
-                return [
-                    'success' => false,
-                    'message' => 'Too many incorrect attempts. Please try again after 5 minutes.',
-                ];
-            }
-
-            $remaining = self::MAX_ATTEMPTS - $attempts;
-            return [
-                'success' => false,
-                'message' => "Incorrect OTP. {$remaining} attempt(s) remaining.",
-            ];
-        }
-
-        // ✅ Correct — clear cache
-        Cache::forget("otp:{$mobile}");
-        Cache::forget("otp_attempts:{$mobile}");
-
-        return ['success' => true, 'message' => 'OTP verified successfully.'];
+        return strlen($digits) > 10 && str_starts_with($digits, $countryCode) ? $digits : $countryCode.$digits;
     }
 }

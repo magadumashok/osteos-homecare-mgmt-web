@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Jobs\SendSms;
+use App\Jobs\SendOtpSms;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Log;
  * (so the check happened on the phone) and then changed the password of
  * any mobile number without verifying anything. Here the code never
  * leaves the server: only its hash is cached, it expires, it can be used
- * once, and a few wrong guesses burn it.
+ * once, and a few wrong guesses burn it. The SMS goes out through MSG91
+ * on its approved OTP template.
  */
 class OtpService
 {
@@ -31,7 +32,10 @@ class OtpService
 
     private const MAX_ATTEMPTS = 5;
 
-    public function __construct(private readonly ReferenceDataService $reference) {}
+    public function __construct(
+        private readonly ReferenceDataService $reference,
+        private readonly MSG91Service $msg91,
+    ) {}
 
     /** Send a fresh code. Silently does nothing within the resend cooldown. */
     public function send(User $user, string $purpose): void
@@ -48,9 +52,6 @@ class OtpService
         Cache::put("{$key}:cooldown", true, self::RESEND_AFTER_SECONDS);
 
         $to = $this->reference->userNumber($user);
-        $message = $purpose === self::LOGIN
-            ? "{$code} is your Homecare login code. It expires in 5 minutes. Do not share it."
-            : "{$code} is your Homecare password reset code. It expires in 5 minutes. Do not share it.";
 
         if (! $to) {
             Log::warning('[OTP] User has no mobile number', ['user' => $user->username]);
@@ -58,10 +59,10 @@ class OtpService
             return;
         }
 
-        if (! SendSms::configured()) {
+        if (! $this->msg91->configured()) {
             Log::info('[OTP] SMS not configured, code not sent', ['user' => $user->username]);
 
-            // Lets developers sign in locally without Twilio.
+            // Lets developers sign in locally without MSG91.
             if (app()->isLocal()) {
                 Log::debug("[OTP] {$purpose} code for {$user->username}: {$code}");
             }
@@ -69,7 +70,7 @@ class OtpService
             return;
         }
 
-        SendSms::dispatch($to, $message);
+        SendOtpSms::dispatch($to, $code);
     }
 
     /** Check a code and consume it on success. */

@@ -35,10 +35,13 @@ return [
         ],
     ],
 
-     'msg91' => [
-        'auth_key'      => env('MSG91_AUTH_KEY'),
-        'sender_id'    => env('MSG91_SENDER_ID'),
-        'template_id'  => env('MSG91_TEMPLATE_ID'),
+    // One-time codes (OTP login, forgot password) by SMS.
+    'msg91' => [
+        'auth_key' => env('MSG91_AUTH_KEY'),
+        'sender_id' => env('MSG91_SENDER_ID', 'Osteos'),
+        'template_id' => env('MSG91_TEMPLATE_ID'),
+        // Added to numbers saved without a country code.
+        'default_country_code' => env('MSG91_DEFAULT_COUNTRY_CODE', '91'),
     ],
 
 ];

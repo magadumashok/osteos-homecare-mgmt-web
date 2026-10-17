@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SendSms;
+use App\Jobs\SendOtpSms;
 use App\Models\User;
+use App\Services\MSG91Service;
 use App\Services\OtpService;
 use App\Services\ReferenceDataService;
 use Illuminate\Support\Facades\Bus;
@@ -22,15 +23,14 @@ class OtpServiceTest extends TestCase
 
         config([
             'cache.default' => 'array',
-            'homecare.twilio.sid' => 'AC_test',
-            'homecare.twilio.token' => 'secret',
-            'homecare.twilio.sms_from' => '+15550000000',
+            'services.msg91.auth_key' => 'test-key',
+            'services.msg91.template_id' => 'test-template',
         ]);
         Bus::fake();
 
         $reference = $this->createMock(ReferenceDataService::class);
         $reference->method('userNumber')->willReturn('+971500000000');
-        $this->otp = new OtpService($reference);
+        $this->otp = new OtpService($reference, new MSG91Service);
 
         $this->user = new User(['username' => 'n0001']);
         $this->user->_id = 'user-1';
@@ -68,7 +68,7 @@ class OtpServiceTest extends TestCase
         $this->otp->send($this->user, OtpService::LOGIN);
         $this->otp->send($this->user, OtpService::LOGIN);
 
-        Bus::assertDispatchedTimes(SendSms::class, 1);
+        Bus::assertDispatchedTimes(SendOtpSms::class, 1);
     }
 
     public function test_the_code_is_not_kept_in_plain_text(): void
@@ -83,9 +83,8 @@ class OtpServiceTest extends TestCase
         $this->otp->send($this->user, $purpose);
 
         $code = null;
-        Bus::assertDispatched(SendSms::class, function (SendSms $job) use (&$code) {
-            preg_match('/\b(\d{6})\b/', $job->body, $m);
-            $code = $m[1] ?? null;
+        Bus::assertDispatched(SendOtpSms::class, function (SendOtpSms $job) use (&$code) {
+            $code = $job->code;
 
             return $job->to === '+971500000000';
         });
