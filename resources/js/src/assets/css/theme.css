@@ -267,7 +267,7 @@
 
 .auth-brand-name {
   font-family: 'Playfair Display', serif;
-  font-size: 18px; font-weight: 600;
+  font-size: 30px; font-weight: 600;
   color: #fff; letter-spacing: .3px;
 }
 
@@ -682,12 +682,12 @@
 
 .shell-brand-name {
   font-family: 'Playfair Display', serif;
-  font-size: 15px; font-weight: 600;
+  font-size: 25px; font-weight: 600;
   color: #fff; letter-spacing: .2px; line-height: 1.2;
 }
 .shell-brand-sub {
   font-size: 10px;
-  color: rgba(255,255,255,.4);
+  color: rgba(255, 255, 255, 0.4);
   letter-spacing: .4px;
   text-transform: uppercase;
 }
