@@ -229,13 +229,18 @@ class PatientService
     {
         $prefix = substr((string) $this->tenants->current(), 0, 3).'p';
 
-        do {
-            // $number = $this->sequences->next('patient', fn () => Patient::count());
-            // $username = $prefix.sprintf('%03d', $number);
-            $username = $prefix.sprintf('%03d', $data['mobile']);
+        // do {
+        //     // $number = $this->sequences->next('patient', fn () => Patient::count());
+        //     // $username = $prefix.sprintf('%03d', $number);
+        //     $username = $prefix.sprintf('%03d', $data['mobile']);
 
-        } while (Patient::where('username', $username)->exists());
+        // } while (Patient::where('username', $username)->exists());
 
+        $exists = Patient::where('mobile', $data['mobile'])->exists();
+        $username = $exists
+            ? $prefix . substr($data['patient_name'], 0, 3) . $data['mobile']
+            : $prefix . $data['mobile'];
+         
         return $username;
     }
 

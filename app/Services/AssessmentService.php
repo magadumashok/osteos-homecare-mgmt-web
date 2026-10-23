@@ -14,6 +14,7 @@ use Illuminate\Validation\ValidationException;
 class AssessmentService
 {
     public function __construct(
+        private readonly TenantService $tenants,
         private readonly PatientLeadService $leads,
         private readonly PatientService $patients,
         private readonly FileStorageService $files,
@@ -96,12 +97,21 @@ class AssessmentService
      */
     public function admit(InitialAssessment $assessment, array $overrides = []): Patient
     {
+        \Log::info('Admitting patient from assessment', [
+            'assessment_id' => $assessment->getKey(),
+            'overrides' => $overrides,
+        ]);
+
+         \Log::info( $assessment );
         $fields = array_flip(InitialAssessment::CLINICAL_FIELDS);
+        // $mobile_modified = substr($assessment["mobile"], 3);
+        // $assessment["mobile"] = $mobile_modified;
 
         $patient = new Patient([
             ...array_intersect_key($assessment->getAttributes(), $fields),
             ...array_intersect_key($overrides, $fields),
-            'username' => $this->patients->nextUsername(),
+            // 'username' => $this->patients->nextUsername($assessment->getAttributes()),
+            'username' => $this->generateUsername($assessment->getAttribute('patient_name'), $assessment->getAttribute('mobile')),
             'discharged' => false,
         ]);
         $patient->setAttribute('_id', $assessment->getKey());
@@ -110,5 +120,15 @@ class AssessmentService
         $assessment->delete();
 
         return $patient;
+    }
+
+    public function generateUsername(string $firstname, string $mobile): string
+    {
+        $mobile_modified = substr($mobile, 3);
+        $prefix = substr((string) $this->tenants->current(), 0, 3).'p';
+        $exists = Patient::where('mobile', $mobile)->exists();
+        return $exists
+            ? $prefix . substr($firstname, 0, 3) . $mobile_modified
+            : $prefix . $mobile_modified;
     }
 }
