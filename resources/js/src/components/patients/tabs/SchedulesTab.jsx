@@ -102,7 +102,8 @@ const SchedulesTab = ({ patient }) => {
     return (
         <Card
             label="Duty schedules"
-            actions={can("schedules.manage") && !isYes(patient.discharged) && <Button small onClick={() => navigate(`/schedules/new?patient=${patient.username}`)}>+ Schedule duty</Button>}
+            // actions={can("schedules.manage") && !isYes(patient.discharged) && 
+            // <Button small onClick={() => navigate(`/schedules/new?patient=${patient.username}`)}>+ Schedule duty</Button>}
         >
             <DataTable data={rows} columns={columns} globalSearch={rows.length > 10} emptyMessage={loading ? "Loading…" : "No duties scheduled yet"} />
             {specimens && <SpecimensDialog duty={specimens} onClose={() => setSpecimens(null)} />}
