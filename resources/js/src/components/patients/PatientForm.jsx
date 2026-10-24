@@ -17,12 +17,19 @@ const SOURCES = ["Phone call", "Walk-in", "Referral", "Hospital", "Website", "So
 
 const FIELDS = [
     "patient_name", "mobile", "email", "gender", "age", "date_of_birth", "id_no", "nationality", "insurance_name",
-    "weight", "country", "state", "address", "source_of_contact", "status", "service_package", "fees", "comments",
+    "weight", "country", "state", "city", "address", "source_of_contact", "status", "service_package", "fees", "comments",
 ];
 
 // Service packages come from shared reference data; field names vary between imports.
 const packageName = (p) => p.name ?? p.package_name ?? p.service_package ?? p.title ?? "";
 const packageFees = (p) => p.fees ?? p.price ?? p.amount ?? "";
+
+// Options valued by name. Older patients have free-text states, so a saved
+// value that is not in the list is kept as an option.
+const namedOptions = (rows, current) => {
+    const options = rows.map((r) => ({ value: r.name ?? r.label, label: r.name ?? r.label })).filter((o) => o.value);
+    return current && !options.some((o) => o.value === current) ? [{ value: current, label: current }, ...options] : options;
+};
 
 /** Register a patient directly (/patients/new) or edit one (/patients/:username/edit). */
 const PatientForm = () => {
@@ -33,6 +40,8 @@ const PatientForm = () => {
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
     const [countries, setCountries] = useState([]);
+    const [regions, setRegions] = useState([]);
+    const [cities, setCities] = useState([]);
     const [nationalities, setNationalities] = useState([]);
     const [packages, setPackages] = useState([]);
 
@@ -40,6 +49,9 @@ const PatientForm = () => {
         defaultValues: Object.fromEntries(FIELDS.map((f) => [f, ""])),
     });
     const chosenPackage = useWatch({ control, name: "service_package" });
+    const country = useWatch({ control, name: "country" });
+    const state = useWatch({ control, name: "state" });
+    const city = useWatch({ control, name: "city" });
 
     useEffect(() => {
         reference.countries().then((list) => setCountries(list.map((c) => ({ value: c.code, label: c.name })))).catch(() => {});
@@ -56,6 +68,24 @@ const PatientForm = () => {
             .finally(() => active && setLoading(false));
         return () => { active = false; };
     }, [isEdit, username, reset]);
+
+    // States of the chosen country, as on the staff form.
+    useEffect(() => {
+        setRegions([]);
+        if (country) reference.regions(country).then(setRegions).catch(() => setRegions([]));
+    }, [country]);
+
+    // State and city are saved by name (they go into the directions link),
+    // so the chosen state's code is looked up to list its cities.
+    const regionCode = useMemo(() => regions.find((r) => (r.name ?? r.label) === state)?.code ?? "", [regions, state]);
+
+    useEffect(() => {
+        setCities([]);
+        if (regionCode) reference.cities(regionCode).then(setCities).catch(() => setCities([]));
+    }, [regionCode]);
+
+    const stateOptions = useMemo(() => namedOptions(regions, state), [regions, state]);
+    const cityOptions = useMemo(() => namedOptions(cities, city), [cities, city]);
 
     const packageOptions = useMemo(() => packages.map((p) => ({ value: packageName(p), label: packageName(p) })).filter((o) => o.value), [packages]);
 
@@ -109,13 +139,37 @@ const PatientForm = () => {
 
                 <Card label="Contact & address" style={{ marginTop: 16 }}>
                     <Grid container columnSpacing={2}>
-                        <Grid item xs={12} sm={4}><RHFSelect name="country" control={control} label={isEdit ? "Country" : "Country *"} options={countries} rules={isEdit ? undefined : { required: "Required" }} /></Grid>
+                        <Grid item xs={12} sm={4}>
+                            <RHFSelect
+                                name="country"
+                                control={control}
+                                label={isEdit ? "Country" : "Country *"}
+                                options={countries}
+                                rules={isEdit ? undefined : { required: "Required" }}
+                                onChange={() => {
+                                    setValue("state", "");
+                                    setValue("city", "");
+                                }}
+                            />
+                        </Grid>
                         <Grid item xs={12} sm={4}>
                             <RHFTextField name="mobile" control={control} label={isEdit ? "Mobile (with country code)" : "Mobile (without country code)"} />
                         </Grid>
                         <Grid item xs={12} sm={4}><RHFTextField name="email" control={control} label="Email" type="email" /></Grid>
-                        <Grid item xs={12} sm={4}><RHFTextField name="state" control={control} label="State / area" /></Grid>
-                        <Grid item xs={12} sm={8}><RHFTextField name="address" control={control} label="Address (used for directions)" /></Grid>
+                        <Grid item xs={12} sm={4}>
+                            <RHFSelect
+                                name="state"
+                                control={control}
+                                label="State / Region"
+                                options={stateOptions}
+                                disabled={!country}
+                                onChange={() => setValue("city", "")}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <RHFSelect name="city" control={control} label="City" options={cityOptions} disabled={!state} />
+                        </Grid>
+                        <Grid item xs={12}><RHFTextField name="address" control={control} label="Street address (used for directions)" /></Grid>
                     </Grid>
                 </Card>
 

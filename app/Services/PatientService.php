@@ -256,7 +256,7 @@ class PatientService
 
     private function mapsLink(array $data): ?string
     {
-        $destination = implode(' ', array_filter([$data['address'] ?? null, $data['state'] ?? null, $data['country'] ?? null]));
+        $destination = implode(' ', array_filter([$data['address'] ?? null, $data['city'] ?? null, $data['state'] ?? null, $data['country'] ?? null]));
 
         return $destination === '' ? null : 'https://www.google.com/maps/dir/?api=1&destination='.urlencode($destination);
     }

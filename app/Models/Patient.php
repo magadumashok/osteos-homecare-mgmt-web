@@ -20,7 +20,7 @@ class Patient extends TenantModel
     public const EDITABLE_FIELDS = [
         'patient_name', 'mobile', 'email', 'gender', 'age', 'date_of_birth', 'birth_date',
         'identity_number', 'id_no', 'nationality', 'insurance_name', 'weight',
-        'country', 'state', 'address', 'address_link',
+        'country', 'state', 'city', 'address', 'address_link',
         'source_of_contact', 'status', 'comments',
         'service', 'service_package', 'fees', 'services',
         'physician', 'diagnosis', 'diagnosis_name', 'physical_assessment',

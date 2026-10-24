@@ -30,6 +30,7 @@ class PatientRequest extends FormRequest
             'weight' => ['nullable', 'numeric', 'min:0', 'max:500'],
             'country' => [$creating ? 'required' : 'sometimes', 'string', 'max:60'],
             'state' => ['nullable', 'string', 'max:120'],
+            'city' => ['nullable', 'string', 'max:120'],
             'address' => ['nullable', 'string', 'max:500'],
             'source_of_contact' => ['nullable', 'string', 'max:120'],
             'status' => ['nullable', 'string', 'max:60'],

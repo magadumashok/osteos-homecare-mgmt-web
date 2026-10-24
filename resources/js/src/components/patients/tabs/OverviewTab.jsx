@@ -26,6 +26,7 @@ const OverviewTab = ({ patient: p }) => {
     const { can } = usePermission();
     const { data: vitals } = useAsync(() => (can("vitals.view") ? patientsApi.latestVitals(p.username) : null), [p.username]);
     const services = Array.isArray(p.services) ? p.services : [];
+    const address = [p.address, p.city, p.state].filter(Boolean).join(", ");
 
     return (
         <Grid container spacing={2}>
@@ -43,7 +44,7 @@ const OverviewTab = ({ patient: p }) => {
                         { label: "Insurance", value: p.insurance_name },
                         { label: "Weight", value: p.weight && `${p.weight} kg` },
                         { label: "Source", value: p.source_of_contact },
-                        { label: "Address", value: p.address && (p.address_link ? <a href={p.address_link} target="_blank" rel="noreferrer">{p.address}</a> : p.address) },
+                        { label: "Address", value: address && (p.address_link ? <a href={p.address_link} target="_blank" rel="noreferrer">{address}</a> : address) },
                     ]} />
                 </Card>
 
