@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Controller, useForm, useWatch } from "react-hook-form";
-import { Autocomplete, Grid, TextField } from "@mui/material";
+import { useForm, useWatch } from "react-hook-form";
+import { Grid } from "@mui/material";
 import { toast } from "react-toastify";
 import RHFTextField from "../forms/RHFTextField";
 import RHFSelect from "../forms/RHFSelect";
 import RHFCheckbox from "../forms/RHFCheckbox";
 import { Button, Card, Loader, PageHeader, colors } from "../common/ui";
-import { assessments, leads, reference as refApi } from "../../api/homecare";
+import { assessments, leads } from "../../api/homecare";
 import * as reference from "../../api/reference";
 import { errorMessage, fieldErrors } from "../../api/client";
 import { SERVICES, invoiceTotals } from "../../utilities/invoice";
@@ -61,34 +61,21 @@ const toForm = (doc) => {
     return merged;
 };
 
-/** ICD code search that also accepts free text. */
-const DiagnosisField = ({ control }) => {
-    const [options, setOptions] = useState([]);
-    const [input, setInput] = useState("");
+const pad = (n) => String(n).padStart(2, "0");
+const todayIso = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
-    useEffect(() => {
-        if (input.trim().length < 2) return undefined;
-        const t = setTimeout(() => refApi.icdCodes(input.trim()).then((list) => setOptions(list ?? [])).catch(() => setOptions([])), 300);
-        return () => clearTimeout(t);
-    }, [input]);
-
-    return (
-        <Controller
-            name="diagnosis_name"
-            control={control}
-            render={({ field }) => (
-                <Autocomplete
-                    freeSolo
-                    options={options}
-                    value={field.value || ""}
-                    onChange={(_, v) => field.onChange(v ?? "")}
-                    inputValue={input || field.value || ""}
-                    onInputChange={(_, v) => { setInput(v); field.onChange(v); }}
-                    renderInput={(params) => <TextField {...params} label="Diagnosis (search ICD codes)" margin="normal" fullWidth />}
-                />
-            )}
-        />
-    );
+/** Full years from a YYYY-MM-DD date of birth to today, or null if not a valid past date. */
+const ageFrom = (birthDate) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate ?? "");
+    if (!m) return null;
+    const [year, month, day] = m.slice(1).map(Number);
+    const now = new Date();
+    let age = now.getFullYear() - year;
+    if (now.getMonth() + 1 < month || (now.getMonth() + 1 === month && now.getDate() < day)) age -= 1;
+    return age >= 0 && age <= 150 ? age : null;
 };
 
 /**
@@ -106,9 +93,15 @@ const AssessmentForm = () => {
     const [saving, setSaving] = useState(false);
     const [nationalities, setNationalities] = useState([]);
 
-    const { control, handleSubmit, reset, setError } = useForm({ defaultValues: blank });
+    const { control, handleSubmit, reset, setError, setValue } = useForm({ defaultValues: blank });
     const values = useWatch({ control });
     const totals = useMemo(() => invoiceTotals(values), [values]);
+
+    // Age follows the date of birth; without one it can be typed in.
+    useEffect(() => {
+        const age = ageFrom(values.birth_date);
+        if (age !== null && String(age) !== String(values.age)) setValue("age", String(age));
+    }, [values.birth_date, values.age, setValue]);
 
     useEffect(() => {
         reference.nationalities().then((list) => setNationalities(list.map((n) => ({ value: n.name ?? n.label, label: n.name ?? n.label })))).catch(() => {});
@@ -175,8 +168,8 @@ const AssessmentForm = () => {
                         <Grid item xs={12} sm={6}><RHFTextField name="patient_name" control={control} label="Patient name *" rules={{ required: "Required" }} /></Grid>
                         <Grid item xs={12} sm={3}><RHFTextField name="mobile" control={control} label="Mobile" /></Grid>
                         <Grid item xs={12} sm={3}><RHFTextField name="email" control={control} label="Email" type="email" /></Grid>
-                        <Grid item xs={6} sm={3}><RHFTextField name="birth_date" control={control} label="Date of birth" type="date" /></Grid>
-                        <Grid item xs={6} sm={2}><RHFTextField name="age" control={control} label="Age" type="number" /></Grid>
+                        <Grid item xs={6} sm={3}><RHFTextField name="birth_date" control={control} label="Date of birth" type="date" inputProps={{ max: todayIso() }} /></Grid>
+                        <Grid item xs={6} sm={2}><RHFTextField name="age" control={control} label="Age" type="number" helperText={ageFrom(values.birth_date) !== null ? "From date of birth" : undefined} inputProps={{ readOnly: ageFrom(values.birth_date) !== null }} /></Grid>
                         <Grid item xs={6} sm={3}><RHFSelect name="gender" control={control} label="Gender" options={GENDERS} /></Grid>
                         <Grid item xs={6} sm={4}>
                             {nationalities.length
@@ -191,7 +184,7 @@ const AssessmentForm = () => {
                 <Card label="Assessment" style={{ marginTop: 16 }}>
                     <Grid container columnSpacing={2}>
                         <Grid item xs={12} sm={5}><RHFTextField name="physician" control={control} label="Referring physician" /></Grid>
-                        <Grid item xs={12} sm={7}><DiagnosisField control={control} /></Grid>
+                        <Grid item xs={12} sm={7}><RHFTextField name="diagnosis_name" control={control} label="Diagnosis" /></Grid>
                         <Grid item xs={12}><RHFTextField name="physical_assessment" control={control} label="Physical assessment" multiline minRows={3} /></Grid>
                         <Grid item xs={12} sm={6}><RHFTextField name="daily_activities" control={control} label="Daily activities" multiline minRows={3} /></Grid>
                         <Grid item xs={12} sm={6}><RHFTextField name="medications" control={control} label="Current medications" multiline minRows={3} /></Grid>
