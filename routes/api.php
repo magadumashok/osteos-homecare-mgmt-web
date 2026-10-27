@@ -117,6 +117,7 @@ Route::prefix('v1')->group(function () {
             Route::get('medications/checklist', [MedicationController::class, 'checklist'])->middleware('permission:medications.view');
             Route::get('medications/administered', [MedicationController::class, 'administered'])->middleware('permission:medications.view');
             Route::post('medications/administered', [MedicationController::class, 'administer'])->middleware('permission:medications.administer');
+            Route::delete('medications/{id}', [MedicationController::class, 'destroy'])->middleware('permission:medications.manage,medications.administer');
             Route::get('guardians', [MedicationController::class, 'guardians'])->middleware('permission:medications.view');
 
             Route::get('prescriptions/{type}', [PrescriptionController::class, 'index'])->whereIn('type', ['medicine', 'test'])->middleware('permission:prescriptions.view');

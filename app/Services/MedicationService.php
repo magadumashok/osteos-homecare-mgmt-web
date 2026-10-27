@@ -31,11 +31,13 @@ class MedicationService
         $medicines = MedicationSchedule::where('patient_id', $patientId)->orderBy('date', 'desc')->get();
         $staff = $this->users->byUsername($medicines->pluck('entered_by'));
 
-        return $medicines->each(function (MedicationSchedule $medicine) use ($staff) {
+        $medicines->each(function (MedicationSchedule $medicine) use ($staff) {
             if ($name = $staff->get($medicine->entered_by)?->displayName()) {
                 $medicine->nurse_name = $name;
             }
         });
+
+        return $this->withDeletable($medicines, $patientId);
     }
 
     /**
@@ -51,13 +53,15 @@ class MedicationService
             ->get()
             ->keyBy('medicine_name');
 
-        return $medicines->each(function (MedicationSchedule $medicine) use ($given) {
+        $medicines->each(function (MedicationSchedule $medicine) use ($given) {
             foreach (AdministerMedication::SESSIONS as $session) {
                 if ($entry = $given->get($medicine->medicine_name)?->{$session}) {
                     $medicine->{$session} = $entry;
                 }
             }
         });
+
+        return $this->withDeletable($medicines, $patientId);
     }
 
     /** What was given on a date, with each session's guardian name and signature. */
@@ -114,6 +118,56 @@ class MedicationService
         $record->save();
 
         return $record;
+    }
+
+    /**
+     * Remove a scheduled medicine that was entered wrongly or twice. Once a
+     * dose of it is given it stays, unless it is a duplicate (another line
+     * with the same name and date keeps the doses attached).
+     */
+    public function deleteSchedule(string $patientId, string $id): void
+    {
+        $medicine = MedicationSchedule::where('patient_id', $patientId)->where('_id', $id)->firstOrFail();
+
+        if (! $this->deletable($medicine)) {
+            throw ValidationException::withMessages(['medicine' => 'A dose of this medicine has already been given, so it can no longer be deleted.']);
+        }
+
+        $medicine->delete();
+    }
+
+    /** Not given yet on its date, or a duplicate of another line. */
+    private function deletable(MedicationSchedule $medicine, ?Collection $given = null, ?Collection $schedule = null): bool
+    {
+        $key = fn ($m) => $m->medicine_name.'|'.$m->date;
+
+        $given ??= AdministerMedication::where('patient_id', $medicine->patient_id)
+            ->where('medicine_name', $medicine->medicine_name)
+            ->where('date', $medicine->date)
+            ->get();
+        $record = $given->first(fn ($g) => $key($g) === $key($medicine));
+        $anyGiven = $record && collect(AdministerMedication::SESSIONS)->contains(fn ($s) => ! empty($record->{$s}));
+
+        if (! $anyGiven) {
+            return true;
+        }
+
+        $schedule ??= MedicationSchedule::where('patient_id', $medicine->patient_id)
+            ->where('medicine_name', $medicine->medicine_name)
+            ->where('date', $medicine->date)
+            ->get();
+
+        return $schedule->filter(fn ($m) => $key($m) === $key($medicine))->count() > 1;
+    }
+
+    /** Mark each medicine `deletable` for the app's delete button. */
+    private function withDeletable(Collection $medicines, string $patientId): Collection
+    {
+        $given = AdministerMedication::where('patient_id', $patientId)
+            ->whereIn('date', $medicines->pluck('date')->unique()->values()->all())
+            ->get();
+
+        return $medicines->each(fn (MedicationSchedule $m) => $m->deletable = $this->deletable($m, $given, $medicines));
     }
 
     public function guardians(string $patientId): Collection

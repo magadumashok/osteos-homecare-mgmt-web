@@ -62,6 +62,14 @@ class MedicationController extends Controller
         return $this->response(true, 'Medication recorded.', 201, $record);
     }
 
+    /** Delete a scheduled medicine entered wrongly or twice (refused once a dose is given). */
+    public function destroy(string $username, string $id): JsonResponse
+    {
+        $this->medications->deleteSchedule($this->patientId($username), $id);
+
+        return $this->response(true, 'Medicine removed.');
+    }
+
     public function guardians(string $username): JsonResponse
     {
         return $this->response(true, '', 200, $this->medications->guardians($this->patientId($username)));
