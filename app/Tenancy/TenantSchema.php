@@ -45,6 +45,13 @@ final class TenantSchema
             [['patient_id' => 1, 'date' => 1]],
             [['date' => 1, 'start_time' => 1]],
             [['role' => 1]],
+            [['live_in' => 1, 'date' => 1]],
+        ],
+        // Caretakers' day-by-day log of 24-hour duties (CareLog).
+        'care_taker_services' => [
+            [['duty_id' => 1, 'date' => 1], ['unique' => true]],
+            [['patient_id' => 1, 'date' => 1]],
+            [['date' => 1]],
         ],
         'nurse_duty_schedule' => [
             [['staff_id' => 1, 'date' => 1]],

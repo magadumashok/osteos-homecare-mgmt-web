@@ -6,6 +6,7 @@ import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
 import PeopleAltOutlined from "@mui/icons-material/PeopleAltOutlined";
 import ExitToAppOutlined from "@mui/icons-material/ExitToAppOutlined";
 import EventNoteOutlined from "@mui/icons-material/EventNoteOutlined";
+import VolunteerActivismOutlined from "@mui/icons-material/VolunteerActivismOutlined";
 
 /**
  * Sidebar navigation. Each module adds its entries here as it is ported.
@@ -39,6 +40,7 @@ const navConfig = [
         group: "Scheduling",
         items: [
             { to: "/schedules", label: "Duty schedules", Icon: EventNoteOutlined, permission: "schedules.view" },
+            { to: "/care-updates", label: "Caretaker updates", Icon: VolunteerActivismOutlined, permission: "schedules.view" },
         ],
     },
     {

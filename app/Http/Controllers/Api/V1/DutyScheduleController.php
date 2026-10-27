@@ -23,7 +23,7 @@ class DutyScheduleController extends Controller
     ) {}
 
     /**
-     * ?date=Y-m-d   duties starting that day (with staff and patient names)
+     * ?date=Y-m-d   duties starting that day, plus 24-hour duties running through it (with staff and patient names)
      * ?since=Y-m-d  duties starting that day or later, newest first
      */
     public function index(Request $request): JsonResponse
@@ -31,7 +31,7 @@ class DutyScheduleController extends Controller
         $filters = $request->validate(['date' => ['nullable', Rules::DATE], 'since' => ['nullable', Rules::DATE]]);
 
         $duties = isset($filters['date'])
-            ? $this->duties->startingOn($filters['date'])
+            ? $this->duties->onDay($filters['date'])
             : $this->duties->since($filters['since'] ?? now()->format('Y-m-d'));
 
         return $this->response(true, '', 200, $duties);

@@ -124,6 +124,16 @@ export const duties = {
     createShortVisit: (body) => post("short-visits", body),
 };
 
+// 24-hour caretaker duties: daily care log, skipped days and covers.
+export const careLogs = {
+    day: (params) => get("care-logs", params),
+    tasks: () => get("care-logs/tasks"),
+    forDuty: (dutyId) => get(`duties/${enc(dutyId)}/care-logs`),
+    save: (dutyId, date, body) => put(`duties/${enc(dutyId)}/care-logs/${enc(date)}`, body),
+    skipDay: (dutyId, date, reason) => post(`duties/${enc(dutyId)}/skip-day`, { date, reason }),
+    coverDay: (dutyId, date, staffId) => post(`duties/${enc(dutyId)}/cover-day`, { date, staff_id: staffId }),
+};
+
 export const driverTrips = {
     create: (body) => post("driver-trips", body),
 };

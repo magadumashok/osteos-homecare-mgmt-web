@@ -95,8 +95,11 @@ class ScheduleConflictService
         $from = CarbonImmutable::createFromFormat('Y-m-d', $duty['date'])->subDay()->format('Y-m-d');
         $to = ($duty['end_date'] ?? null) ?: $duty['date'];
 
+        // Duties starting before $from still clash if they run into it
+        // (24-hour caretaker duties last months).
         return StaffDutySchedule::query()
-            ->whereBetween('date', [$from, $to])
+            ->where('date', '<=', $to)
+            ->where(fn ($q) => $q->where('date', '>=', $from)->orWhere('end_date', '>=', $from))
             ->when($ignoreId, fn ($q) => $q->where('_id', '!=', $ignoreId));
     }
 

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AssessmentController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CareLogController;
 use App\Http\Controllers\Api\V1\DriverTripController;
 use App\Http\Controllers\Api\V1\DutyScheduleController;
 use App\Http\Controllers\Api\V1\MedicationController;
@@ -136,6 +137,14 @@ Route::prefix('v1')->group(function () {
         Route::post('duties/{id}/sign-out', [DutyScheduleController::class, 'signOut'])->middleware('permission:attendance.record');
         Route::post('duties/{id}/not-attended', [DutyScheduleController::class, 'notAttended'])->middleware('permission:schedules.manage,attendance.record');
         Route::post('short-visits', [ShortVisitController::class, 'store'])->middleware('permission:schedules.manage');
+
+        // 24-hour caretaker duties: daily care log, skipped days and covers.
+        Route::get('care-logs', [CareLogController::class, 'index'])->middleware('permission:schedules.view');
+        Route::get('care-logs/tasks', [CareLogController::class, 'tasks'])->middleware('permission:schedules.view,attendance.record');
+        Route::get('duties/{id}/care-logs', [CareLogController::class, 'forDuty'])->middleware('permission:schedules.view,attendance.record');
+        Route::put('duties/{id}/care-logs/{date}', [CareLogController::class, 'save'])->middleware('permission:schedules.manage,attendance.record');
+        Route::post('duties/{id}/skip-day', [CareLogController::class, 'skip'])->middleware('permission:schedules.manage,attendance.record');
+        Route::post('duties/{id}/cover-day', [CareLogController::class, 'cover'])->middleware('permission:schedules.manage');
 
         Route::get('driver-trips/mine', [DriverTripController::class, 'mine'])->middleware('permission:schedules.view,attendance.record');
         Route::post('driver-trips', [DriverTripController::class, 'store'])->middleware('permission:schedules.manage');

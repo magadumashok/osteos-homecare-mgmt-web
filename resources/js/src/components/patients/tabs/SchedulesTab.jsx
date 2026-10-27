@@ -8,9 +8,18 @@ import useAsync from "../../../hooks/useAsync";
 import usePermission from "../../../hooks/usePermission";
 import { duties, patients as patientsApi } from "../../../api/homecare";
 import { errorMessage } from "../../../api/client";
-import { fmtDate, fmtTime, humanize, isYes } from "../../../utilities/format";
+import { fmtDate, fmtTime, humanize, isYes, today } from "../../../utilities/format";
+
+/** Visit times, or "24-hour care" for a caretaker's live-in duty. */
+export const dutyTime = (d) => (isYes(d.live_in) ? "24-hour care" : `${fmtTime(d.start_time)} – ${fmtTime(d.end_time)}`);
 
 export const dutyStatus = (d) => {
+    if (isYes(d.live_in)) {
+        if (isYes(d.not_attended)) return <Badge tone="danger">Cancelled</Badge>;
+        if (d.date > today()) return <Badge tone="muted">Upcoming</Badge>;
+        if ((d.end_date || d.date) < today()) return <Badge tone="success">Ended</Badge>;
+        return <Badge tone="warning">Ongoing</Badge>;
+    }
     if (isYes(d.not_attended)) return <Badge tone="danger">Not attended</Badge>;
     if (isYes(d.sign_out)) return <Badge tone="success">Completed</Badge>;
     if (isYes(d.sign_in)) return <Badge tone="warning">In progress</Badge>;
@@ -77,7 +86,7 @@ const SchedulesTab = ({ patient }) => {
 
     const columns = useMemo(() => [
         { header: "Date", accessorKey: "date", cell: ({ row }) => `${fmtDate(row.original.date)}${row.original.end_date && row.original.end_date !== row.original.date ? ` → ${fmtDate(row.original.end_date)}` : ""}` },
-        { header: "Time", id: "time", cell: ({ row }) => `${fmtTime(row.original.start_time)} – ${fmtTime(row.original.end_time)}` },
+        { header: "Time", id: "time", cell: ({ row }) => dutyTime(row.original) },
         { header: "Staff", accessorKey: "staff_name", cell: ({ row }) => <>{row.original.staff_name ?? row.original.staff_id}<div style={{ fontSize: 11, color: colors.muted }}>{humanize(row.original.role)}</div></> },
         { header: "Signed in / out", id: "attendance", cell: ({ row }) => `${fmtTime(row.original.signin_time)} / ${fmtTime(row.original.signout_time)}` },
         { header: "Status", id: "status", cell: ({ row }) => <>{dutyStatus(row.original)}{row.original.not_attended_reason && <div style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>{row.original.not_attended_reason}</div>}</> },
@@ -89,6 +98,7 @@ const SchedulesTab = ({ patient }) => {
                 const done = isYes(d.sign_out) || isYes(d.not_attended);
                 return (
                     <ActionCell>
+                        {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
                         {canAny(["invoices.view", "patients.view"]) && <TableBtn variant="secondary" onClick={() => navigate(`/patients/${patient.username}/duties/${d._id}/invoice`)}>Invoice</TableBtn>}
                         {can("documents.view") && Array.isArray(d.specimen_images) && d.specimen_images.length > 0 && <TableBtn variant="secondary" onClick={() => setSpecimens(d)}>Specimens</TableBtn>}
                         {can("schedules.manage") && !done && <TableBtn onClick={() => navigate(`/schedules/${d._id}/edit`)}>Reschedule</TableBtn>}

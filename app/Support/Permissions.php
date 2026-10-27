@@ -112,6 +112,15 @@ final class Permissions
                 'documents.view', 'documents.upload', 'video.call',
             ],
         ],
+        // Stays with one patient around the clock for weeks or months and
+        // logs the day's care (see CareLog) instead of signing in and out.
+        'caretaker' => [
+            'description' => 'Caretaker: 24-hour duties, daily care log, vitals and notes',
+            'permissions' => [
+                'patients.view', 'attendance.record',
+                'medications.view', 'vitals.view', 'vitals.record', 'notes.view', 'notes.write',
+            ],
+        ],
         'transport' => [
             'description' => 'Driver: own schedule, pickups and drops',
             'permissions' => ['schedules.view', 'attendance.record'],

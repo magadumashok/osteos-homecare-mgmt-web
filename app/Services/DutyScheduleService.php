@@ -11,8 +11,8 @@ use App\Support\TimeFormat;
 use Illuminate\Support\Collection;
 
 /**
- * Duties of nurses, physiotherapists and doctors with patients: creating,
- * rescheduling, attendance and the lists built from them.
+ * Duties of nurses, physiotherapists, doctors and caretakers with patients:
+ * creating, rescheduling, attendance and the lists built from them.
  */
 class DutyScheduleService
 {
@@ -43,6 +43,7 @@ class DutyScheduleService
      */
     public function create(array $data, bool $checkConflicts = true): array
     {
+        $data = $this->withLiveIn($data);
         $patient = $this->patients->findOrFail($data['patient_id'] ?? null);
 
         if ($checkConflicts && ($conflict = $this->conflicts->find($data))) {
@@ -53,6 +54,7 @@ class DutyScheduleService
 
         $duty = StaffDutySchedule::create([
             ...array_intersect_key($data, array_flip(StaffDutySchedule::SCHEDULE_FIELDS)),
+            ...array_intersect_key($data, array_flip(['live_in', 'covers_duty_id'])),
             ...$this->packageOf($patient),
             ...StaffDutySchedule::freshAttendance(),
         ]);
@@ -121,6 +123,7 @@ class DutyScheduleService
     public function reschedule(StaffDutySchedule $duty, array $data): StaffDutySchedule
     {
         $changes = array_intersect_key($data, array_flip(StaffDutySchedule::SCHEDULE_FIELDS));
+        $changes = $this->withLiveIn([...$changes, 'role' => $changes['role'] ?? $duty->role]);
         $next = [...$duty->only(StaffDutySchedule::SCHEDULE_FIELDS), ...$changes];
 
         if ($conflict = $this->conflicts->find($next, ignoreId: (string) $duty->getKey())) {
@@ -162,14 +165,25 @@ class DutyScheduleService
         $duty->update(['not_attended' => true, 'not_attended_reason' => (string) $reason]);
     }
 
-    /** A staff member's duties ending on a date (their day's work), with patient name and address. */
+    /**
+     * A staff member's work on a date, with patient name and address:
+     * visits ending that day, plus 24-hour duties running through it
+     * (shown every day until their end date, except days they skip).
+     */
     public function forStaffOn(string $staffId, string $date): Collection
     {
-        $duties = StaffDutySchedule::where('staff_id', $staffId)
+        $visits = StaffDutySchedule::where('staff_id', $staffId)
             ->where('end_date', $date)
             ->where('not_attended', false)
-            ->orderBy('start_time')
+            ->where('live_in', '!=', true)
             ->get();
+
+        $liveIn = $this->liveInOn($date)
+            ->where('staff_id', $staffId)
+            ->get()
+            ->reject(fn (StaffDutySchedule $duty) => $duty->isSkipped($date));
+
+        $duties = $liveIn->concat($visits)->sortBy('start_time')->values();
 
         return $this->withPatients($duties, withAddress: true);
     }
@@ -180,6 +194,24 @@ class DutyScheduleService
         $duties = StaffDutySchedule::where('date', $date)->orderBy('start_time')->get();
 
         return $this->withStaff($this->withPatients($duties, withAddress: true), 'staff_name');
+    }
+
+    /** The duty board for a day: duties starting then, plus 24-hour duties already running. */
+    public function onDay(string $date): Collection
+    {
+        $running = $this->liveInOn($date)->where('date', '<', $date)->get();
+        $duties = $running->concat(StaffDutySchedule::where('date', $date)->orderBy('start_time')->get());
+
+        return $this->decorate($duties);
+    }
+
+    /** Live-in duties running on a date (not cancelled). */
+    public function liveInOn(string $date)
+    {
+        return StaffDutySchedule::where('live_in', true)
+            ->where('date', '<=', $date)
+            ->where('end_date', '>=', $date)
+            ->where('not_attended', false);
     }
 
     /** Duties starting on or after a date, newest first, with staff (`name`) and patient names. */
@@ -237,6 +269,20 @@ class DutyScheduleService
         return StaffDutySchedule::where(array_intersect_key($slot, array_flip($fields)))->first();
     }
 
+    /** Add patient name and address, and staff name, to duties. */
+    public function decorate(Collection $duties): Collection
+    {
+        return $this->withStaff($this->withPatients($duties, withAddress: true), 'staff_name');
+    }
+
+    /** Caretaker duties get whole-day times; other roles keep the times sent. */
+    private function withLiveIn(array $data): array
+    {
+        return StaffDutySchedule::isLiveInRole($data['role'] ?? null)
+            ? [...$data, ...StaffDutySchedule::liveInFields()]
+            : [...$data, 'live_in' => false];
+    }
+
     /**
      * Tell the staff member, patient and driver about a new or moved duty.
      * Which template is used depends on whether the patient is on a
@@ -247,7 +293,8 @@ class DutyScheduleService
         $staff = $this->users->find($duty->staff_id);
         $staffName = $staff?->displayName();
         $patientMobile = $patient->mobile ?: 'not provided';
-        $time = TimeFormat::to12Hour($duty->start_time);
+        // Live-in duties have no visit time: the templates' time slot says how long the stay is.
+        $time = $duty->live_in ? "24-hour care until {$duty->end_date}" : TimeFormat::to12Hour($duty->start_time);
         $homecare = $this->tenants->displayName();
         $driverName = trim((string) ($driver?->name ?? $duty->driver));
         $hasDriver = $driverName !== '';
@@ -275,7 +322,11 @@ class DutyScheduleService
         }
 
         $type = $rescheduled ? 'duty_rescheduled' : 'duty_assigned';
-        $when = "on {$duty->date} at {$time}";
+        $when = match (true) {
+            ! $duty->live_in => "on {$duty->date} at {$time}",
+            $duty->date === $duty->end_date => "on {$duty->date} (24-hour care)",
+            default => "from {$duty->date} to {$duty->end_date} (24-hour care)",
+        };
         $data = ['type' => $type, 'dutyId' => (string) $duty->getKey(), 'date' => $duty->date];
 
         $this->push->notify(

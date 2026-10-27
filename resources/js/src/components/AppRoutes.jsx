@@ -51,6 +51,8 @@ const DischargedList    = lazy(() => import("./patients/DischargedList.jsx"));
 // Scheduling
 const DutyList          = lazy(() => import("./schedules/DutyList.jsx"));
 const DutyForm          = lazy(() => import("./schedules/DutyForm.jsx"));
+const CareUpdates       = lazy(() => import("./schedules/CareUpdates.jsx"));
+const CareDutyLog       = lazy(() => import("./schedules/CareDutyLog.jsx"));
 
 const NotFound         = lazy(() => import("./NotFound.jsx"));
 
@@ -115,6 +117,8 @@ export default function AppRoutes() {
                         <Route path="/schedules" element={<Allowed permission="schedules.view"><DutyList /></Allowed>} />
                         <Route path="/schedules/new" element={<Allowed permission="schedules.manage"><DutyForm /></Allowed>} />
                         <Route path="/schedules/:id/edit" element={<Allowed permission="schedules.manage"><DutyForm /></Allowed>} />
+                        <Route path="/schedules/:id/care" element={<Allowed permission="schedules.view"><CareDutyLog /></Allowed>} />
+                        <Route path="/care-updates" element={<Allowed permission="schedules.view"><CareUpdates /></Allowed>} />
                     </Route>
                 </Route>
 

@@ -7,7 +7,7 @@ import DataTable, { ActionCell, TableBtn } from "../table/DataTable";
 import RHFTextField from "../forms/RHFTextField";
 import RHFSelect from "../forms/RHFSelect";
 import { Button, Card, Modal, PageHeader, StatStrip, colors } from "../common/ui";
-import { dutyStatus } from "../patients/tabs/SchedulesTab";
+import { dutyStatus, dutyTime } from "../patients/tabs/SchedulesTab";
 import useAsync from "../../hooks/useAsync";
 import usePermission from "../../hooks/usePermission";
 import { driverTrips, duties, staff as staffApi } from "../../api/homecare";
@@ -117,8 +117,8 @@ const DutyList = () => {
     );
 
     const columns = useMemo(() => [
-        { header: "Date", accessorKey: "date", cell: ({ row }) => fmtDate(row.original.date) },
-        { header: "Time", id: "time", cell: ({ row }) => `${fmtTime(row.original.start_time)} – ${fmtTime(row.original.end_time)}` },
+        { header: "Date", accessorKey: "date", cell: ({ row }) => isYes(row.original.live_in) && row.original.end_date !== row.original.date ? `${fmtDate(row.original.date)} → ${fmtDate(row.original.end_date)}` : fmtDate(row.original.date) },
+        { header: "Time", id: "time", cell: ({ row }) => dutyTime(row.original) },
         {
             header: "Patient",
             accessorKey: "patient_name",
@@ -144,8 +144,9 @@ const DutyList = () => {
                 const done = isYes(d.sign_out) || isYes(d.not_attended);
                 return (
                     <ActionCell>
+                        {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
                         {can("schedules.manage") && !done && <TableBtn onClick={() => navigate(`/schedules/${d._id}/edit`)}>Reschedule</TableBtn>}
-                        {can("schedules.manage") && !done && <TableBtn variant="secondary" onClick={() => setBooking({ ...d, staff_name: d.staff_name ?? d.name })}>Book driver</TableBtn>}
+                        {can("schedules.manage") && !done && !isYes(d.live_in) && <TableBtn variant="secondary" onClick={() => setBooking({ ...d, staff_name: d.staff_name ?? d.name })}>Book driver</TableBtn>}
                     </ActionCell>
                 );
             },
