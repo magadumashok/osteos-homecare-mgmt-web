@@ -19,9 +19,9 @@ import { errorMessage } from "../../api/client";
 import { humanize } from "../../utilities/format";
 
 // Roles with duty or trip history worth monitoring (as in the legacy app).
-const HAS_ATTENDANCE = ["nurse", "physiotherapist", "doctor", "transport"];
+const HAS_ATTENDANCE = ["nurse", "physiotherapist", "doctor", "caretaker","transport"];
 // Roles that use the mobile app and can take a video call.
-const CAN_CALL = ["nurse", "physiotherapist", "doctor", "transport"];
+const CAN_CALL = ["nurse", "physiotherapist", "doctor", "caretaker","transport"];
 
 const StaffList = () => {
     const navigate = useNavigate();
