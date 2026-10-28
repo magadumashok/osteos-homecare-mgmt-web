@@ -37,7 +37,7 @@ class MedicationService
             }
         });
 
-        return $this->withDeletable($medicines, $patientId);
+        return $this->withDeleteInfo($medicines, $patientId);
     }
 
     /**
@@ -61,7 +61,7 @@ class MedicationService
             }
         });
 
-        return $this->withDeletable($medicines, $patientId);
+        return $this->withDeleteInfo($medicines, $patientId);
     }
 
     /** What was given on a date, with each session's guardian name and signature. */
@@ -121,53 +121,51 @@ class MedicationService
     }
 
     /**
-     * Remove a scheduled medicine that was entered wrongly or twice. Once a
-     * dose of it is given it stays, unless it is a duplicate (another line
-     * with the same name and date keeps the doses attached).
+     * Remove a scheduled medicine that was entered wrongly or twice. Doses
+     * are recorded per medicine name and date, so a duplicate's doses stay
+     * with the copy that remains; deleting the only entry removes that
+     * day's given doses with it (they were given against a wrong entry).
      */
     public function deleteSchedule(string $patientId, string $id): void
     {
         $medicine = MedicationSchedule::where('patient_id', $patientId)->where('_id', $id)->firstOrFail();
 
-        if (! $this->deletable($medicine)) {
-            throw ValidationException::withMessages(['medicine' => 'A dose of this medicine has already been given, so it can no longer be deleted.']);
+        $copies = MedicationSchedule::where('patient_id', $patientId)
+            ->where('medicine_name', $medicine->medicine_name)
+            ->where('date', $medicine->date)
+            ->count();
+
+        if ($copies <= 1) {
+            AdministerMedication::where('patient_id', $patientId)
+                ->where('medicine_name', $medicine->medicine_name)
+                ->where('date', $medicine->date)
+                ->delete();
         }
 
         $medicine->delete();
     }
 
-    /** Not given yet on its date, or a duplicate of another line. */
-    private function deletable(MedicationSchedule $medicine, ?Collection $given = null, ?Collection $schedule = null): bool
+    /**
+     * Flag each medicine for the app's delete confirmation: `duplicate`
+     * (another entry with the same name and date) and `doses_given` (a
+     * session was given that day).
+     */
+    private function withDeleteInfo(Collection $medicines, string $patientId): Collection
     {
         $key = fn ($m) => $m->medicine_name.'|'.$m->date;
 
-        $given ??= AdministerMedication::where('patient_id', $medicine->patient_id)
-            ->where('medicine_name', $medicine->medicine_name)
-            ->where('date', $medicine->date)
-            ->get();
-        $record = $given->first(fn ($g) => $key($g) === $key($medicine));
-        $anyGiven = $record && collect(AdministerMedication::SESSIONS)->contains(fn ($s) => ! empty($record->{$s}));
-
-        if (! $anyGiven) {
-            return true;
-        }
-
-        $schedule ??= MedicationSchedule::where('patient_id', $medicine->patient_id)
-            ->where('medicine_name', $medicine->medicine_name)
-            ->where('date', $medicine->date)
-            ->get();
-
-        return $schedule->filter(fn ($m) => $key($m) === $key($medicine))->count() > 1;
-    }
-
-    /** Mark each medicine `deletable` for the app's delete button. */
-    private function withDeletable(Collection $medicines, string $patientId): Collection
-    {
         $given = AdministerMedication::where('patient_id', $patientId)
             ->whereIn('date', $medicines->pluck('date')->unique()->values()->all())
-            ->get();
+            ->get()
+            ->filter(fn ($g) => collect(AdministerMedication::SESSIONS)->contains(fn ($s) => ! empty($g->{$s})))
+            ->map($key)
+            ->flip();
+        $copies = $medicines->countBy($key);
 
-        return $medicines->each(fn (MedicationSchedule $m) => $m->deletable = $this->deletable($m, $given, $medicines));
+        return $medicines->each(function (MedicationSchedule $m) use ($key, $given, $copies) {
+            $m->duplicate = $copies->get($key($m), 0) > 1;
+            $m->doses_given = $given->has($key($m));
+        });
     }
 
     public function guardians(string $patientId): Collection

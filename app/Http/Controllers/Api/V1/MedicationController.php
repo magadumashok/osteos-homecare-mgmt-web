@@ -62,7 +62,7 @@ class MedicationController extends Controller
         return $this->response(true, 'Medication recorded.', 201, $record);
     }
 
-    /** Delete a scheduled medicine entered wrongly or twice (refused once a dose is given). */
+    /** Delete a scheduled medicine entered wrongly or twice (see MedicationService::deleteSchedule). */
     public function destroy(string $username, string $id): JsonResponse
     {
         $this->medications->deleteSchedule($this->patientId($username), $id);
