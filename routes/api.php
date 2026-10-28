@@ -136,6 +136,7 @@ Route::prefix('v1')->group(function () {
         Route::put('duties/{id}', [DutyScheduleController::class, 'update'])->middleware('permission:schedules.manage');
         Route::post('duties/{id}/sign-in', [DutyScheduleController::class, 'signIn'])->middleware('permission:attendance.record');
         Route::post('duties/{id}/sign-out', [DutyScheduleController::class, 'signOut'])->middleware('permission:attendance.record');
+        Route::post('duties/{id}/presence-photos', [DutyScheduleController::class, 'presencePhoto'])->middleware('permission:attendance.record');
         Route::post('duties/{id}/not-attended', [DutyScheduleController::class, 'notAttended'])->middleware('permission:schedules.manage,attendance.record');
         Route::post('short-visits', [ShortVisitController::class, 'store'])->middleware('permission:schedules.manage');
 

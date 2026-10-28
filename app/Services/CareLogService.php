@@ -179,7 +179,7 @@ class CareLogService
         ];
 
         if ($this->conflicts->find($data, checkPatient: false)) {
-            throw new ScheduleConflictException(ScheduleConflictService::STAFF);
+            throw new ScheduleConflictException(ScheduleConflictService::STAFF, $this->conflicts->describe(ScheduleConflictService::STAFF, $data));
         }
 
         $cover = $this->duties->create($data, checkConflicts: false)['duty'];

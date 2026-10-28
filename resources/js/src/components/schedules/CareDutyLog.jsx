@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, Card, EmptyState, InfoGrid, Loader, PageHeader, colors } from "../common/ui";
-import { dutyStatus } from "../patients/tabs/SchedulesTab";
+import { PresencePhotosDialog, dutyStatus } from "../patients/tabs/SchedulesTab";
 import { CareLogDetail, CoverDialog, careDayStatus } from "./CareUpdates";
 import useAsync from "../../hooks/useAsync";
 import usePermission from "../../hooks/usePermission";
@@ -21,6 +21,7 @@ const CareDutyLog = () => {
     const navigate = useNavigate();
     const { can } = usePermission();
     const [covering, setCovering] = useState(null);
+    const [showPhotos, setShowPhotos] = useState(false);
     const { data, loading, reload } = useAsync(() => careLogs.forDuty(id), [id], null);
 
     const duty = data?.duty;
@@ -50,6 +51,7 @@ const CareDutyLog = () => {
                 actions={
                     <>
                         <Button variant="secondary" onClick={() => navigate(`/patients/${duty.patient_id}?tab=schedules`)}>Patient schedules</Button>
+                        <Button variant="secondary" onClick={() => setShowPhotos(true)}>Photos ({(duty.presence_photos ?? []).length})</Button>
                         {can("schedules.manage") && <Button onClick={() => navigate(`/schedules/${duty._id}/edit`)}>Edit duty</Button>}
                     </>
                 }
@@ -77,6 +79,7 @@ const CareDutyLog = () => {
                     </div>
                 ))}
             </Card>
+            {showPhotos && <PresencePhotosDialog duty={duty} onClose={() => setShowPhotos(false)} />}
             {covering && <CoverDialog duty={duty} date={covering} onClose={() => setCovering(null)} onSaved={() => { setCovering(null); reload(); }} />}
         </div>
     );

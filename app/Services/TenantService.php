@@ -93,6 +93,31 @@ class TenantService
         return (string) ($this->homecare()?->name ?: $this->current);
     }
 
+    /**
+     * The center's local timezone, which duty dates and times are in:
+     * HOMECARE_TIMEZONE, else its country's (first) zone, else the app's.
+     */
+    public function timezone(): string
+    {
+        if ($zone = config('homecare.attendance.timezone')) {
+            return $zone;
+        }
+
+        $country = strtoupper(trim((string) $this->homecare()?->country));
+        if (strlen($country) === 2) {
+            try {
+                $zones = \DateTimeZone::listIdentifiers(\DateTimeZone::PER_COUNTRY, $country);
+                if ($zones) {
+                    return $zones[0];
+                }
+            } catch (\ValueError) {
+                // Not an ISO country code: fall through.
+            }
+        }
+
+        return config('app.timezone');
+    }
+
     /** Run a callback against another homecare's database, then switch back. */
     public function run(string $homecareId, callable $callback): mixed
     {

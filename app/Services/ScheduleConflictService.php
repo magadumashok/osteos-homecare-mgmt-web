@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Patient;
 use App\Models\StaffDutySchedule;
 use App\Support\TimeFormat;
 use Carbon\CarbonImmutable;
@@ -96,8 +97,10 @@ class ScheduleConflictService
         $to = ($duty['end_date'] ?? null) ?: $duty['date'];
 
         // Duties starting before $from still clash if they run into it
-        // (24-hour caretaker duties last months).
+        // (24-hour caretaker duties last months). Cancelled (not attended)
+        // duties free their slot.
         return StaffDutySchedule::query()
+            ->where('not_attended', '!=', true)
             ->where('date', '<=', $to)
             ->where(fn ($q) => $q->where('date', '>=', $from)->orWhere('end_date', '>=', $from))
             ->when($ignoreId, fn ($q) => $q->where('_id', '!=', $ignoreId));
@@ -108,5 +111,39 @@ class ScheduleConflictService
         return $conflict === self::PATIENT
             ? 'This patient already has a staff member of this role scheduled at this time.'
             : 'This staff member is already scheduled at this time.';
+    }
+
+    /**
+     * The conflict in words, naming the duty in the way: e.g. a caretaker
+     * already living in with another patient, or a patient who already has
+     * a caretaker. Roles differing (nurse and caretaker) never clash on a
+     * patient, so both can be assigned to the same patient.
+     */
+    public function describe(string $conflict, array $duty, ?string $ignoreId = null): string
+    {
+        $query = $this->candidates($duty, $ignoreId);
+        $query = $conflict === self::PATIENT
+            ? $query->where('patient_id', $duty['patient_id'] ?? null)->when(! empty($duty['role']), fn ($q) => $q->where('role', $duty['role']))
+            : $query->where('staff_id', $duty['staff_id'] ?? null);
+
+        $clash = $query->get()->first(fn (StaffDutySchedule $other) => $this->overlaps($other->toArray(), $duty));
+        if (! $clash) {
+            return self::message($conflict);
+        }
+
+        $patient = Patient::where('username', $clash->patient_id)->value('patient_name') ?? $clash->patient_id;
+        $when = $clash->live_in
+            ? "from {$clash->date} to {$clash->end_date} (24-hour care)"
+            : "on {$clash->date}, ".TimeFormat::to12Hour($clash->start_time).' – '.TimeFormat::to12Hour($clash->end_time);
+
+        if ($conflict === self::PATIENT) {
+            return $clash->live_in
+                ? "{$patient} already has a caretaker {$when}."
+                : "{$patient} already has a {$clash->role} scheduled {$when}.";
+        }
+
+        return $clash->live_in
+            ? "This caretaker is already assigned to {$patient} {$when}. Reschedule or end that duty before assigning them to another patient."
+            : "This staff member is already scheduled with {$patient} {$when}.";
     }
 }

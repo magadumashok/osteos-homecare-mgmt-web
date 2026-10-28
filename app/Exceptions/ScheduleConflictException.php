@@ -11,10 +11,13 @@ use Illuminate\Http\JsonResponse;
  */
 class ScheduleConflictException extends \RuntimeException
 {
-    /** @param  ScheduleConflictService::PATIENT|ScheduleConflictService::STAFF  $conflict */
-    public function __construct(public readonly string $conflict)
+    /**
+     * @param  ScheduleConflictService::PATIENT|ScheduleConflictService::STAFF  $conflict
+     * @param  ?string  $message  a specific one (ScheduleConflictService::describe), else the generic one
+     */
+    public function __construct(public readonly string $conflict, ?string $message = null)
     {
-        parent::__construct(ScheduleConflictService::message($conflict));
+        parent::__construct($message ?? ScheduleConflictService::message($conflict));
     }
 
     public function render(): JsonResponse

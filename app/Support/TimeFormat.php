@@ -26,10 +26,10 @@ final class TimeFormat
         return "{$hour}:{$m[2]} {$suffix}";
     }
 
-    /** Combine a "Y-m-d" date and an "HH:MM" time. */
-    public static function at(string $date, ?string $time): CarbonImmutable
+    /** Combine a "Y-m-d" date and an "HH:MM" time (seconds zero), optionally in a timezone. */
+    public static function at(string $date, ?string $time, ?string $timezone = null): CarbonImmutable
     {
-        return CarbonImmutable::createFromFormat('Y-m-d H:i', $date.' '.self::hhmm($time));
+        return CarbonImmutable::createFromFormat('!Y-m-d H:i', $date.' '.self::hhmm($time), $timezone);
     }
 
     /** "01:30" → 90. */

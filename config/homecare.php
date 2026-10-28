@@ -65,6 +65,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Attendance
+    |--------------------------------------------------------------------------
+    |
+    | Duty times are local to the homecare center. Sign-in is allowed this
+    | many minutes either side of the start time, and sign-out from the end
+    | time on. The center's timezone comes from its country unless
+    | HOMECARE_TIMEZONE is set (e.g. "Asia/Kolkata").
+    |
+    */
+
+    'attendance' => [
+        'timezone' => env('HOMECARE_TIMEZONE'),
+        'signin_grace_minutes' => (int) env('SIGNIN_GRACE_MINUTES', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Patient documents
     |--------------------------------------------------------------------------
     |

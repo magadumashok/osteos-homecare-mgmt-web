@@ -8,7 +8,10 @@ use App\Models\Patient;
 use App\Models\StaffDutySchedule;
 use App\Models\User;
 use App\Support\TimeFormat;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Duties of nurses, physiotherapists, doctors and caretakers with patients:
@@ -25,6 +28,7 @@ class DutyScheduleService
         private readonly ReferenceDataService $reference,
         private readonly WhatsAppService $whatsapp,
         private readonly PushNotificationService $push,
+        private readonly FileStorageService $files,
     ) {}
 
     public function findOrFail(string $id): StaffDutySchedule
@@ -47,7 +51,7 @@ class DutyScheduleService
         $patient = $this->patients->findOrFail($data['patient_id'] ?? null);
 
         if ($checkConflicts && ($conflict = $this->conflicts->find($data))) {
-            throw new ScheduleConflictException($conflict);
+            throw new ScheduleConflictException($conflict, $this->conflicts->describe($conflict, $data));
         }
 
         $driver = $this->users->driverNamed($data['driver'] ?? null);
@@ -127,7 +131,7 @@ class DutyScheduleService
         $next = [...$duty->only(StaffDutySchedule::SCHEDULE_FIELDS), ...$changes];
 
         if ($conflict = $this->conflicts->find($next, ignoreId: (string) $duty->getKey())) {
-            throw new ScheduleConflictException($conflict);
+            throw new ScheduleConflictException($conflict, $this->conflicts->describe($conflict, $next, (string) $duty->getKey()));
         }
 
         $duty->update([...$changes, 'not_attended' => false, 'not_attended_reason' => '']);
@@ -140,24 +144,172 @@ class DutyScheduleService
         return $duty;
     }
 
-    public function signIn(StaffDutySchedule $duty, array $data): void
+    /**
+     * Start a visit. Staff may sign in only within a few minutes either
+     * side of the start time (center's local time), and not while they are
+     * still signed in elsewhere or on a 24-hour duty. A coordinator signing
+     * someone else in skips the time window. The time recorded is the
+     * server's, not the phone's.
+     *
+     * @throws ValidationException
+     */
+    public function signIn(StaffDutySchedule $duty, array $data, bool $enforceWindow = true): void
     {
+        if ($duty->live_in) {
+            $this->refuse('24-hour duties have no sign in. Send the daily care update instead.');
+        }
+        if ($duty->not_attended) {
+            $this->refuse('This duty was marked as not attended.');
+        }
+        if ($duty->sign_in) {
+            $this->refuse('You have already signed in to this duty.');
+        }
+
+        $now = CarbonImmutable::now($this->tenants->timezone());
+
+        if ($enforceWindow) {
+            [$start] = $this->interval($duty);
+            $grace = config('homecare.attendance.signin_grace_minutes');
+            $from = $start->subMinutes($grace);
+            $until = $start->addMinutes($grace);
+
+            if ($now->lt($from) || $now->gt($until)) {
+                $this->refuse("You can sign in only between {$from->format('g:i a')} and {$until->format('g:i a')} on {$start->format('j M')}."
+                    .($now->gt($until) ? ' Ask your coordinator to reschedule the duty.' : ''));
+            }
+        }
+
+        if ($busy = $this->busyWith($duty)) {
+            $this->refuse($busy);
+        }
+
         $duty->update([
             'sign_in' => true,
-            'signin_time' => $data['signin_time'] ?? null,
+            'signin_time' => $now->format('H:i'),
             'signin_latitude' => $data['signin_latitude'] ?? null,
             'signin_longitude' => $data['signin_longitude'] ?? null,
         ]);
     }
 
-    public function signOut(StaffDutySchedule $duty, array $data): void
+    /**
+     * End a visit: only after signing in, and from the session's end time
+     * on (a coordinator signing someone else out skips the time check).
+     *
+     * @throws ValidationException
+     */
+    public function signOut(StaffDutySchedule $duty, array $data, bool $enforceWindow = true): void
     {
+        if (! $duty->sign_in) {
+            $this->refuse('Sign in to this duty first.');
+        }
+        if ($duty->sign_out) {
+            $this->refuse('You have already signed out of this duty.');
+        }
+
+        $now = CarbonImmutable::now($this->tenants->timezone());
+
+        if ($enforceWindow) {
+            [, $end] = $this->interval($duty);
+            if ($now->lt($end)) {
+                $this->refuse("You can sign out from {$end->format('g:i a')} on {$end->format('j M')}, when the session ends.");
+            }
+        }
+
         $duty->update([
             'sign_out' => true,
-            'signout_time' => $data['signout_time'] ?? null,
+            'signout_time' => $now->format('H:i'),
             'signout_latitude' => $data['signout_latitude'] ?? null,
             'signout_longitude' => $data['signout_longitude'] ?? null,
         ]);
+    }
+
+    /**
+     * A photo of the staff member with the patient, taken at the patient's
+     * home as proof of the visit: during a signed-in visit, or on any day
+     * of a 24-hour duty. Kept on the duty with the time and GPS position.
+     *
+     * @return array{url: string, date: string, time: string, latitude: ?float, longitude: ?float, staff_id: string}
+     *
+     * @throws ValidationException
+     */
+    public function addPresencePhoto(StaffDutySchedule $duty, UploadedFile $photo, array $data): array
+    {
+        $now = CarbonImmutable::now($this->tenants->timezone());
+        $today = $now->format('Y-m-d');
+
+        if ($duty->not_attended) {
+            $this->refuse('This duty was marked as not attended.');
+        }
+        if ($duty->live_in) {
+            if (! $duty->covers($today) || $duty->isSkipped($today)) {
+                $this->refuse('You can add a photo only on a day you are on this duty.');
+            }
+        } elseif (! $duty->sign_in || $duty->sign_out) {
+            $this->refuse('Sign in to the duty first. Photos can be added until you sign out.');
+        }
+
+        $entry = [
+            'url' => $this->files->storeUpload($photo, "patients/{$duty->patient_id}/presence"),
+            'date' => $today,
+            'time' => $now->format('H:i'),
+            'latitude' => isset($data['latitude']) ? (float) $data['latitude'] : null,
+            'longitude' => isset($data['longitude']) ? (float) $data['longitude'] : null,
+            'staff_id' => $duty->staff_id,
+        ];
+
+        StaffDutySchedule::where('_id', $duty->getKey())->push('presence_photos', [$entry]);
+
+        return $entry;
+    }
+
+    /**
+     * Why the staff member cannot start this duty now: still signed in to
+     * another visit, or on a 24-hour duty with another patient today.
+     */
+    private function busyWith(StaffDutySchedule $duty): ?string
+    {
+        $today = CarbonImmutable::now($this->tenants->timezone())->format('Y-m-d');
+
+        $open = StaffDutySchedule::where('staff_id', $duty->staff_id)
+            ->where('_id', '!=', $duty->getKey())
+            ->where('sign_in', true)
+            ->where('sign_out', '!=', true)
+            ->where('not_attended', '!=', true)
+            ->first();
+        if ($open) {
+            $name = $this->patients->find($open->patient_id)?->patient_name ?? $open->patient_id;
+
+            return "You are still signed in to your duty with {$name}. Sign out of it first.";
+        }
+
+        $stay = $this->liveInOn($today)
+            ->where('staff_id', $duty->staff_id)
+            ->where('_id', '!=', $duty->getKey())
+            ->get()
+            ->first(fn (StaffDutySchedule $d) => ! $d->isSkipped($today));
+        if ($stay) {
+            $name = $this->patients->find($stay->patient_id)?->patient_name ?? $stay->patient_id;
+
+            return "You are on 24-hour duty with {$name} until {$stay->end_date}. Ask your coordinator to reschedule before attending another patient.";
+        }
+
+        return null;
+    }
+
+    /** When the duty starts and ends, in the center's timezone (ending "before" it starts means overnight). */
+    private function interval(StaffDutySchedule $duty): array
+    {
+        $timezone = $this->tenants->timezone();
+        $start = TimeFormat::at($duty->date, $duty->start_time, $timezone);
+        $end = TimeFormat::at($duty->end_date ?: $duty->date, $duty->end_time, $timezone);
+
+        return [$start, $end <= $start ? $end->addDay() : $end];
+    }
+
+    /** @throws ValidationException */
+    private function refuse(string $message): never
+    {
+        throw ValidationException::withMessages(['duty' => $message]);
     }
 
     public function markNotAttended(StaffDutySchedule $duty, ?string $reason): void

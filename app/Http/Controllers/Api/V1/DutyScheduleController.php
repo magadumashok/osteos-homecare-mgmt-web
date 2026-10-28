@@ -74,30 +74,57 @@ class DutyScheduleController extends Controller
         return $this->response(true, 'Duty rescheduled.', 200, $duty);
     }
 
+    /** Within a few minutes of the start time; the server's clock decides (signin_time is ignored). */
     public function signIn(Request $request, string $id): JsonResponse
     {
         $data = $request->validate([
-            'signin_time' => ['required', Rules::TIME],
+            'signin_time' => ['nullable', Rules::TIME],
             'signin_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'signin_longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
-        $this->duties->signIn($this->ownDuty($request, $id), $data);
+        $duty = $this->ownDuty($request, $id);
+        $this->duties->signIn($duty, $data, enforceWindow: $this->isOwn($request, $duty));
 
         return $this->response(true, 'Signed in.');
     }
 
+    /** After signing in, from the session's end time on. */
     public function signOut(Request $request, string $id): JsonResponse
     {
         $data = $request->validate([
-            'signout_time' => ['required', Rules::TIME],
+            'signout_time' => ['nullable', Rules::TIME],
             'signout_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'signout_longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
-        $this->duties->signOut($this->ownDuty($request, $id), $data);
+        $duty = $this->ownDuty($request, $id);
+        $this->duties->signOut($duty, $data, enforceWindow: $this->isOwn($request, $duty));
 
         return $this->response(true, 'Signed out.');
+    }
+
+    /** A photo with the patient at their home, as proof of the visit (`photo` image, optional GPS). */
+    public function presencePhoto(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'photo' => ['required', 'image', Rules::upload()],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+        ]);
+
+        $duty = $this->ownDuty($request, $id);
+        abort_unless($this->isOwn($request, $duty), 403, 'Only the staff member on the duty can add this photo.');
+
+        $entry = $this->duties->addPresencePhoto($duty, $request->file('photo'), $data);
+
+        return $this->response(true, 'Photo saved.', 201, $entry);
+    }
+
+    /** Coordinators acting on someone else's duty are not held to the time windows. */
+    private function isOwn(Request $request, StaffDutySchedule $duty): bool
+    {
+        return $duty->staff_id === $request->user()->username;
     }
 
     public function notAttended(Request $request, string $id): JsonResponse

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ScheduleConflictException;
 use App\Models\DischargedPatient;
 use App\Models\Patient;
 use App\Models\StaffDutySchedule;
@@ -19,6 +20,7 @@ class PatientService
         private readonly UserDirectoryService $users,
         private readonly FileStorageService $files,
         private readonly WhatsAppService $whatsapp,
+        private readonly ScheduleConflictService $conflicts,
     ) {}
 
     public function all(): Collection
@@ -87,9 +89,18 @@ class PatientService
      * is logged as their own duty.
      *
      * @return array{0: Patient, 1: StaffDutySchedule}
+     *
+     * @throws ScheduleConflictException when the staff member is already booked then
      */
     public function registerWalkIn(User $staff, array $patientData, array $duty): array
     {
+        // Staff already assigned at that time (or on a 24-hour duty) cannot
+        // take on another patient until their duty is rescheduled.
+        $slot = [...$duty, 'staff_id' => $staff->username];
+        if ($this->conflicts->find($slot, checkPatient: false)) {
+            throw new ScheduleConflictException(ScheduleConflictService::STAFF, $this->conflicts->describe(ScheduleConflictService::STAFF, $slot));
+        }
+
         // The legacy app prefixed every walk-in number with +91; use the
         // patient's (or else the center's) country instead.
         $country = $patientData['country'] ?? $this->tenants->homecare()?->country;

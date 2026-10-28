@@ -48,7 +48,33 @@ const SpecimensDialog = ({ duty, onClose }) => {
     );
 };
 
-const NotAttendedDialog = ({ duty, onClose, onSaved }) => {
+/** Photos staff took with the patient at their home, with time and a map link to where. */
+export const PresencePhotosDialog = ({ duty, onClose }) => {
+    const photos = Array.isArray(duty.presence_photos) ? duty.presence_photos : [];
+    return (
+        <Modal open title={`Visit photos · ${duty.patient_name ?? duty.patient_id ?? ""}`} onClose={onClose} maxWidth="md">
+            {photos.length ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+                    {photos.map((p) => (
+                        <div key={p.url} style={{ fontSize: 12, color: colors.body }}>
+                            <a href={p.url} target="_blank" rel="noreferrer">
+                                <img src={p.url} alt="Staff with patient" style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, border: `1px solid ${colors.line}` }} />
+                            </a>
+                            <div style={{ marginTop: 4 }}>
+                                {fmtDate(p.date)} · {fmtTime(p.time)}
+                                {p.latitude != null && p.longitude != null && (
+                                    <> · <a href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`} target="_blank" rel="noreferrer">Location</a></>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : <p style={{ color: colors.muted, fontSize: 13 }}>No photos for this duty yet.</p>}
+        </Modal>
+    );
+};
+
+const NotAttendedDialog =({ duty, onClose, onSaved }) => {
     const [reason, setReason] = useState("");
     const [saving, setSaving] = useState(false);
     const save = async () => {
@@ -83,6 +109,7 @@ const SchedulesTab = ({ patient }) => {
     const { data: rows, loading, reload } = useAsync(() => patientsApi.schedules(patient.username), [patient.username], []);
     const [specimens, setSpecimens] = useState(null);
     const [notAttended, setNotAttended] = useState(null);
+    const [photos, setPhotos] = useState(null);
 
     const columns = useMemo(() => [
         { header: "Date", accessorKey: "date", cell: ({ row }) => `${fmtDate(row.original.date)}${row.original.end_date && row.original.end_date !== row.original.date ? ` → ${fmtDate(row.original.end_date)}` : ""}` },
@@ -99,6 +126,7 @@ const SchedulesTab = ({ patient }) => {
                 return (
                     <ActionCell>
                         {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
+                        {Array.isArray(d.presence_photos) && d.presence_photos.length > 0 && <TableBtn variant="secondary" onClick={() => setPhotos({ ...d, patient_name: patient.patient_name })}>Photos ({d.presence_photos.length})</TableBtn>}
                         {canAny(["invoices.view", "patients.view"]) && <TableBtn variant="secondary" onClick={() => navigate(`/patients/${patient.username}/duties/${d._id}/invoice`)}>Invoice</TableBtn>}
                         {can("documents.view") && Array.isArray(d.specimen_images) && d.specimen_images.length > 0 && <TableBtn variant="secondary" onClick={() => setSpecimens(d)}>Specimens</TableBtn>}
                         {can("schedules.manage") && !done && <TableBtn onClick={() => navigate(`/schedules/${d._id}/edit`)}>Reschedule</TableBtn>}
@@ -117,6 +145,7 @@ const SchedulesTab = ({ patient }) => {
         >
             <DataTable data={rows} columns={columns} globalSearch={rows.length > 10} emptyMessage={loading ? "Loading…" : "No duties scheduled yet"} />
             {specimens && <SpecimensDialog duty={specimens} onClose={() => setSpecimens(null)} />}
+            {photos && <PresencePhotosDialog duty={photos} onClose={() => setPhotos(null)} />}
             {notAttended && <NotAttendedDialog duty={notAttended} onClose={() => setNotAttended(null)} onSaved={() => { setNotAttended(null); reload(); }} />}
         </Card>
     );
