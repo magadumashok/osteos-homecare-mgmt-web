@@ -101,6 +101,7 @@ export const patients = {
 
     medications: (username) => get(`${p(username)}/medications`),
     addMedication: (username, body) => post(`${p(username)}/medications`, body),
+    deleteMedication: (username, id) => del(`${p(username)}/medications/${enc(id)}`),
     medicationChecklist: (username, date) => get(`${p(username)}/medications/checklist`, { date }),
     administered: (username, date) => get(`${p(username)}/medications/administered`, { date }),
     administer: (username, body) => post(`${p(username)}/medications/administered`, body),

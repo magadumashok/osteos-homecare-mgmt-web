@@ -2,10 +2,10 @@ import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Grid, TextField } from "@mui/material";
 import { toast } from "react-toastify";
-import DataTable from "../../table/DataTable";
+import DataTable, { ActionCell, TableBtn } from "../../table/DataTable";
 import RHFTextField from "../../forms/RHFTextField";
 import RHFSelect from "../../forms/RHFSelect";
-import { Button, Card, Modal, colors } from "../../common/ui";
+import { Button, Card, ConfirmDialog, Modal, colors } from "../../common/ui";
 import useAsync from "../../../hooks/useAsync";
 import usePermission from "../../../hooks/usePermission";
 import { patients as patientsApi } from "../../../api/homecare";
@@ -52,6 +52,16 @@ const MedicationDialog = ({ patient, onClose, onSaved }) => {
     );
 };
 
+/**
+ * What deleting a medicine does, as on mobile: a duplicate's doses stay with
+ * the remaining copy; deleting the only entry removes that day's doses too.
+ */
+const deleteEffect = (m) => {
+    if (m.duplicate) return "This is a duplicate entry. The other entry stays, with any doses already given.";
+    if (m.doses_given) return `Doses already marked given for this medicine on ${fmtDate(m.date)} will also be removed.`;
+    return "This removes it from the patient's medication list.";
+};
+
 /** Session cell: who gave it and when, plus the witnessing guardian. */
 const Given = ({ entry }) => {
     if (!entry) return <span style={{ color: colors.muted }}>—</span>;
@@ -66,12 +76,30 @@ const Given = ({ entry }) => {
 };
 
 const MedicationTab = ({ patient }) => {
-    const { can } = usePermission();
+    const { can, canAny } = usePermission();
     const [date, setDate] = useState(today());
     const [adding, setAdding] = useState(false);
+    const [deleting, setDeleting] = useState(null);
+    const [removing, setRemoving] = useState(false);
+    const canDelete = canAny(["medications.manage", "medications.administer"]);
 
     const { data: schedule, loading, reload } = useAsync(() => patientsApi.medications(patient.username), [patient.username], []);
-    const { data: given, loading: loadingGiven } = useAsync(() => patientsApi.administered(patient.username, date), [patient.username, date], []);
+    const { data: given, loading: loadingGiven, reload: reloadGiven } = useAsync(() => patientsApi.administered(patient.username, date), [patient.username, date], []);
+
+    const remove = async () => {
+        setRemoving(true);
+        try {
+            await patientsApi.deleteMedication(patient.username, deleting._id);
+            toast.success("Medicine removed.");
+            setDeleting(null);
+            reload();
+            reloadGiven();
+        } catch (e) {
+            toast.error(errorMessage(e));
+        } finally {
+            setRemoving(false);
+        }
+    };
 
     const scheduleColumns = useMemo(() => [
         { header: "Date", accessorKey: "date", cell: ({ row }) => fmtDate(row.original.date) },
@@ -80,7 +108,18 @@ const MedicationTab = ({ patient }) => {
         { header: "Frequency", accessorKey: "frequency", cell: ({ row }) => row.original.frequency || "—" },
         { header: "Food", accessorKey: "before_or_after_food", cell: ({ row }) => row.original.before_or_after_food || "—" },
         { header: "Entered by", id: "by", cell: ({ row }) => row.original.nurse_name ?? row.original.entered_by ?? "—" },
-    ], []);
+        ...(canDelete
+            ? [{
+                header: "Actions",
+                id: "actions",
+                cell: ({ row }) => (
+                    <ActionCell>
+                        <TableBtn variant="danger" onClick={() => setDeleting(row.original)}>Delete</TableBtn>
+                    </ActionCell>
+                ),
+            }]
+            : []),
+    ], [canDelete]);
 
     const givenColumns = useMemo(() => [
         { header: "Medicine", accessorKey: "medicine_name" },
@@ -102,6 +141,24 @@ const MedicationTab = ({ patient }) => {
             </Card>
 
             {adding && <MedicationDialog patient={patient} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); reload(); }} />}
+            <ConfirmDialog
+                open={!!deleting}
+                danger
+                loading={removing}
+                title={deleting?.duplicate ? "Delete duplicate?" : "Delete medicine?"}
+                confirmLabel="Delete"
+                message={deleting && (
+                    <>
+                        <strong>{deleting.medicine_name}</strong>
+                        {" · "}
+                        {[[deleting.dosage, deleting.dose_unit].filter(Boolean).join(" "), deleting.frequency, fmtDate(deleting.date)].filter(Boolean).join(" · ")}
+                        <br /><br />
+                        {deleteEffect(deleting)}
+                    </>
+                )}
+                onConfirm={remove}
+                onClose={() => setDeleting(null)}
+            />
         </>
     );
 };

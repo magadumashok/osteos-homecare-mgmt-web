@@ -11,13 +11,14 @@ import * as reference from "../../api/reference";
 import { errorMessage, fieldErrors } from "../../api/client";
 import { compact } from "../../utilities/format";
 import { onInvalid } from "../../utilities/formErrors";
+import { SERVICE_OPTIONS, serviceChoice, serviceValue } from "../../utilities/services";
 
 const GENDERS = ["Male", "Female", "Other"].map((v) => ({ value: v, label: v }));
 const SOURCES = ["Phone call", "Walk-in", "Referral", "Hospital", "Website", "Social media", "Other"].map((v) => ({ value: v, label: v }));
 
 const FIELDS = [
     "patient_name", "mobile", "email", "gender", "age", "date_of_birth", "id_no", "nationality", "insurance_name",
-    "weight", "country", "state", "city", "address", "source_of_contact", "status", "service_package", "fees", "comments",
+    "weight", "country", "state", "city", "address", "source_of_contact", "status", "service", "service_package", "fees", "comments",
 ];
 
 // Service packages come from shared reference data; field names vary between imports.
@@ -46,8 +47,9 @@ const PatientForm = () => {
     const [packages, setPackages] = useState([]);
 
     const { control, handleSubmit, reset, setValue, setError } = useForm({
-        defaultValues: Object.fromEntries(FIELDS.map((f) => [f, ""])),
+        defaultValues: { ...Object.fromEntries(FIELDS.map((f) => [f, ""])), service_other: "" },
     });
+    const service = useWatch({ control, name: "service" });
     const chosenPackage = useWatch({ control, name: "service_package" });
     const country = useWatch({ control, name: "country" });
     const state = useWatch({ control, name: "state" });
@@ -63,7 +65,11 @@ const PatientForm = () => {
         if (!isEdit) return undefined;
         let active = true; // ignore a stale load (see AssessmentForm)
         patientsApi.show(username)
-            .then((p) => active && reset(Object.fromEntries(FIELDS.map((f) => [f, p[f] ?? ""]))))
+            .then((p) => {
+                if (!active) return;
+                const choice = serviceChoice(p.service);
+                reset({ ...Object.fromEntries(FIELDS.map((f) => [f, p[f] ?? ""])), service: choice.service, service_other: choice.other });
+            })
             .catch((e) => active && toast.error(errorMessage(e)))
             .finally(() => active && setLoading(false));
         return () => { active = false; };
@@ -95,8 +101,12 @@ const PatientForm = () => {
         if (pkg && packageFees(pkg) !== "") setValue("fees", packageFees(pkg));
     }, [chosenPackage, packages, setValue]);
 
-    const onSubmit = async (values) => {
-        const body = compact(values);
+    const onSubmit = async ({ service_other: serviceOther, ...values }) => {
+        if (values.service === "other" && !serviceOther.trim()) {
+            setError("service_other", { message: "Enter the service" });
+            return;
+        }
+        const body = compact({ ...values, service: serviceValue(values.service, serviceOther) });
         setSaving(true);
         try {
             const patient = isEdit ? await patientsApi.update(username, body) : await patientsApi.create(body);
@@ -175,6 +185,12 @@ const PatientForm = () => {
 
                 <Card label="Service" style={{ marginTop: 16 }}>
                     <Grid container columnSpacing={2}>
+                        <Grid item xs={12} sm={service === "other" ? 6 : 12}>
+                            <RHFSelect name="service" control={control} label="Service" options={SERVICE_OPTIONS} />
+                        </Grid>
+                        {service === "other" && (
+                            <Grid item xs={12} sm={6}><RHFTextField name="service_other" control={control} label="Service name *" /></Grid>
+                        )}
                         <Grid item xs={12} sm={6}>
                             {packageOptions.length
                                 ? <RHFSelect name="service_package" control={control} label="Service package" options={packageOptions} />

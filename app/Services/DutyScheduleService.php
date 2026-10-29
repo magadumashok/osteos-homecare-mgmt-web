@@ -49,6 +49,7 @@ class DutyScheduleService
     {
         $data = $this->withLiveIn($data);
         $patient = $this->patients->findOrFail($data['patient_id'] ?? null);
+        $data = $this->withServiceOf($data, $patient);
 
         if ($checkConflicts && ($conflict = $this->conflicts->find($data))) {
             throw new ScheduleConflictException($conflict, $this->conflicts->describe($conflict, $data));
@@ -56,10 +57,11 @@ class DutyScheduleService
 
         $driver = $this->users->driverNamed($data['driver'] ?? null);
 
+        // The duty's own service and fees win over the patient's package.
         $duty = StaffDutySchedule::create([
+            ...$this->packageOf($patient),
             ...array_intersect_key($data, array_flip(StaffDutySchedule::SCHEDULE_FIELDS)),
             ...array_intersect_key($data, array_flip(['live_in', 'covers_duty_id'])),
-            ...$this->packageOf($patient),
             ...StaffDutySchedule::freshAttendance(),
         ]);
 
@@ -83,9 +85,11 @@ class DutyScheduleService
     }
 
     /**
-     * The same duty on several date ranges. Every range is checked for the
-     * staff member being double-booked before any is saved (the legacy
-     * endpoint saved ranges until the first clash, then stopped).
+     * The same shift on several date ranges (e.g. 8 am – 8 pm every day for
+     * three months), one duty per day so each day is signed in and out.
+     * Every range is checked for the staff member, or the patient (same
+     * role), being double-booked before any is saved (the legacy endpoint
+     * saved ranges until the first clash, then stopped).
      *
      * @param  list<array{start_date: string, end_date: string}>  $ranges
      * @return Collection<int, StaffDutySchedule>
@@ -94,21 +98,28 @@ class DutyScheduleService
      */
     public function createSeries(array $data, array $ranges): Collection
     {
+        $patient = $this->patients->findOrFail($data['patient_id'] ?? null);
+        $data = $this->withServiceOf($data, $patient);
+
         $duties = collect($ranges)->map(fn (array $range) => [
             ...array_intersect_key($data, array_flip(StaffDutySchedule::SCHEDULE_FIELDS)),
             'date' => $range['start_date'],
             'end_date' => $range['end_date'],
+            'live_in' => false,
         ]);
 
         foreach ($duties as $i => $duty) {
-            $overlapsSeries = $this->conflicts->overlapsAny($duty, $duties->except($i)->all());
-
-            if ($overlapsSeries || $this->conflicts->find($duty, checkPatient: false)) {
-                throw new ScheduleConflictException(ScheduleConflictService::STAFF);
+            if ($this->conflicts->overlapsAny($duty, $duties->except($i)->all())) {
+                throw new ScheduleConflictException(ScheduleConflictService::STAFF, 'Two of these shifts overlap. Shorten the shift or space the days out.');
+            }
+            if ($conflict = $this->conflicts->find($duty)) {
+                throw new ScheduleConflictException($conflict, $this->conflicts->describe($conflict, $duty));
             }
         }
 
+        $package = $this->packageOf($patient);
         $created = $duties->map(fn (array $duty) => StaffDutySchedule::create([
+            ...$package,
             ...$duty,
             ...StaffDutySchedule::freshAttendance(),
         ]));
@@ -126,8 +137,8 @@ class DutyScheduleService
      */
     public function reschedule(StaffDutySchedule $duty, array $data): StaffDutySchedule
     {
-        $changes = array_intersect_key($data, array_flip(StaffDutySchedule::SCHEDULE_FIELDS));
-        $changes = $this->withLiveIn([...$changes, 'role' => $changes['role'] ?? $duty->role]);
+        $changes = array_intersect_key($data, array_flip([...StaffDutySchedule::SCHEDULE_FIELDS, 'live_in']));
+        $changes = $this->withLiveIn([...$changes, 'role' => $changes['role'] ?? $duty->role], $duty);
         $next = [...$duty->only(StaffDutySchedule::SCHEDULE_FIELDS), ...$changes];
 
         if ($conflict = $this->conflicts->find($next, ignoreId: (string) $duty->getKey())) {
@@ -427,12 +438,32 @@ class DutyScheduleService
         return $this->withStaff($this->withPatients($duties, withAddress: true), 'staff_name');
     }
 
-    /** Caretaker duties get whole-day times; other roles keep the times sent. */
-    private function withLiveIn(array $data): array
+    /**
+     * 24-hour (live-in) duties get whole-day times; shifts keep the times
+     * sent. `live_in` decides; without it a duty keeps what it was, and a
+     * new caretaker duty without times (older apps) is live-in.
+     */
+    private function withLiveIn(array $data, ?StaffDutySchedule $existing = null): array
     {
-        return StaffDutySchedule::isLiveInRole($data['role'] ?? null)
+        $liveIn = match (true) {
+            array_key_exists('live_in', $data) && $data['live_in'] !== null => filter_var($data['live_in'], FILTER_VALIDATE_BOOLEAN),
+            $existing !== null => (bool) $existing->live_in,
+            default => StaffDutySchedule::isLiveInRole($data['role'] ?? null) && empty($data['start_time']),
+        };
+
+        return $liveIn
             ? [...$data, ...StaffDutySchedule::liveInFields()]
             : [...$data, 'live_in' => false];
+    }
+
+    /** Service and fees left blank on the duty come from the patient's registration. */
+    private function withServiceOf(array $data, Patient $patient): array
+    {
+        return [
+            ...$data,
+            'service' => ($data['service'] ?? null) ?: ($patient->service ?: null),
+            'fees' => ($data['fees'] ?? null) ?? ($patient->fees ?? null),
+        ];
     }
 
     /**

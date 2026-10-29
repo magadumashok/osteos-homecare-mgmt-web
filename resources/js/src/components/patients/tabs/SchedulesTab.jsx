@@ -48,6 +48,46 @@ const SpecimensDialog = ({ duty, onClose }) => {
     );
 };
 
+const hasPoint = (lat, lng) => lat !== null && lat !== undefined && lat !== "" && lng !== null && lng !== undefined && lng !== "";
+export const hasAttendanceLocation = (d) => hasPoint(d.signin_latitude, d.signin_longitude) || hasPoint(d.signout_latitude, d.signout_longitude);
+
+const MapPoint = ({ title, time, lat, lng }) => (
+    <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: colors.ink, marginBottom: 6 }}>
+            {title}{time ? ` · ${fmtTime(time)}` : ""}
+        </div>
+        {hasPoint(lat, lng) ? (
+            <>
+                <iframe
+                    title={title}
+                    src={`https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`}
+                    style={{ width: "100%", height: 260, border: `1px solid ${colors.line}`, borderRadius: 8 }}
+                    loading="lazy"
+                />
+                <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                    Open in Google Maps ({Number(lat).toFixed(5)}, {Number(lng).toFixed(5)})
+                </a>
+            </>
+        ) : (
+            <p style={{ fontSize: 13, color: colors.muted }}>{time ? "Location not shared (GPS off or refused)." : "Not yet."}</p>
+        )}
+    </div>
+);
+
+/** Where the staff member was when they signed in and out of this day's session. */
+export const AttendanceMapDialog = ({ duty, onClose }) => (
+    <Modal open title={`Sign-in location · ${fmtDate(duty.date)}`} onClose={onClose} maxWidth="md">
+        <p style={{ fontSize: 13, color: colors.body, marginTop: 0 }}>
+            {duty.staff_name ?? duty.name ?? duty.staff_id} with {duty.patient_name ?? duty.patient_id} · {fmtTime(duty.start_time)} – {fmtTime(duty.end_time)}
+            {duty.address ? <><br />Patient's address: {duty.address}</> : null}
+        </p>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <MapPoint title="Signed in" time={duty.signin_time} lat={duty.signin_latitude} lng={duty.signin_longitude} />
+            <MapPoint title="Signed out" time={duty.signout_time} lat={duty.signout_latitude} lng={duty.signout_longitude} />
+        </div>
+    </Modal>
+);
+
 /** Photos staff took with the patient at their home, with time and a map link to where. */
 export const PresencePhotosDialog = ({ duty, onClose }) => {
     const photos = Array.isArray(duty.presence_photos) ? duty.presence_photos : [];
@@ -110,6 +150,7 @@ const SchedulesTab = ({ patient }) => {
     const [specimens, setSpecimens] = useState(null);
     const [notAttended, setNotAttended] = useState(null);
     const [photos, setPhotos] = useState(null);
+    const [mapFor, setMapFor] = useState(null);
 
     const columns = useMemo(() => [
         { header: "Date", accessorKey: "date", cell: ({ row }) => `${fmtDate(row.original.date)}${row.original.end_date && row.original.end_date !== row.original.date ? ` → ${fmtDate(row.original.end_date)}` : ""}` },
@@ -126,6 +167,7 @@ const SchedulesTab = ({ patient }) => {
                 return (
                     <ActionCell>
                         {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
+                        {hasAttendanceLocation(d) && <TableBtn variant="secondary" onClick={() => setMapFor({ ...d, patient_name: patient.patient_name, address: patient.address })}>Location</TableBtn>}
                         {Array.isArray(d.presence_photos) && d.presence_photos.length > 0 && <TableBtn variant="secondary" onClick={() => setPhotos({ ...d, patient_name: patient.patient_name })}>Photos ({d.presence_photos.length})</TableBtn>}
                         {canAny(["invoices.view", "patients.view"]) && <TableBtn variant="secondary" onClick={() => navigate(`/patients/${patient.username}/duties/${d._id}/invoice`)}>Invoice</TableBtn>}
                         {can("documents.view") && Array.isArray(d.specimen_images) && d.specimen_images.length > 0 && <TableBtn variant="secondary" onClick={() => setSpecimens(d)}>Specimens</TableBtn>}
@@ -146,6 +188,7 @@ const SchedulesTab = ({ patient }) => {
             <DataTable data={rows} columns={columns} globalSearch={rows.length > 10} emptyMessage={loading ? "Loading…" : "No duties scheduled yet"} />
             {specimens && <SpecimensDialog duty={specimens} onClose={() => setSpecimens(null)} />}
             {photos && <PresencePhotosDialog duty={photos} onClose={() => setPhotos(null)} />}
+            {mapFor && <AttendanceMapDialog duty={mapFor} onClose={() => setMapFor(null)} />}
             {notAttended && <NotAttendedDialog duty={notAttended} onClose={() => setNotAttended(null)} onSaved={() => { setNotAttended(null); reload(); }} />}
         </Card>
     );

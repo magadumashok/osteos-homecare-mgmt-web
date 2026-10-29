@@ -9,7 +9,8 @@ use Carbon\CarbonImmutable;
 
 /**
  * Detects double-booked duties: a patient with two staff of the same role
- * at once, or one staff member in two places at once.
+ * at once (a nurse and a caretaker together is fine, as are caretakers on
+ * back-to-back shifts), or one staff member in two places at once.
  *
  * A duty occupies [date start_time, end_date end_time + buffer_time]. Two
  * duties conflict when those intervals overlap. Duties can run overnight,
@@ -36,7 +37,8 @@ class ScheduleConflictService
                 ->when(! empty($duty['role']), fn ($q) => $q->where('role', $duty['role']))
                 ->get(self::FIELDS);
 
-            if ($this->overlapsAny($duty, $sameSlot)) {
+            // No travel buffer here: one caretaker can hand over to the next at 8 pm.
+            if ($this->overlapsAny($duty, $sameSlot, withBuffer: false)) {
                 return self::PATIENT;
             }
         }
@@ -55,10 +57,10 @@ class ScheduleConflictService
     }
 
     /** @param  iterable<array|StaffDutySchedule>  $existing */
-    public function overlapsAny(array $duty, iterable $existing): bool
+    public function overlapsAny(array $duty, iterable $existing, bool $withBuffer = true): bool
     {
         foreach ($existing as $other) {
-            if ($this->overlaps($other instanceof StaffDutySchedule ? $other->toArray() : $other, $duty)) {
+            if ($this->overlaps($other instanceof StaffDutySchedule ? $other->toArray() : $other, $duty, $withBuffer)) {
                 return true;
             }
         }
@@ -66,13 +68,19 @@ class ScheduleConflictService
         return false;
     }
 
-    /** Does the requested duty start before the existing one (plus its buffer) ends, and vice versa? */
-    public function overlaps(array $existing, array $requested): bool
+    /**
+     * Does the requested duty start before the existing one ends, and vice
+     * versa? The existing duty's travel buffer counts for the staff member
+     * (they need time to get to the next patient), not for the patient.
+     */
+    public function overlaps(array $existing, array $requested, bool $withBuffer = true): bool
     {
         [$existingStart, $existingEnd] = $this->interval($existing);
         [$requestedStart, $requestedEnd] = $this->interval($requested);
 
-        $existingEnd = $existingEnd->addMinutes(TimeFormat::minutes($existing['buffer_time'] ?? null));
+        if ($withBuffer) {
+            $existingEnd = $existingEnd->addMinutes(TimeFormat::minutes($existing['buffer_time'] ?? null));
+        }
 
         return $existingStart < $requestedEnd && $requestedStart < $existingEnd;
     }
@@ -126,7 +134,7 @@ class ScheduleConflictService
             ? $query->where('patient_id', $duty['patient_id'] ?? null)->when(! empty($duty['role']), fn ($q) => $q->where('role', $duty['role']))
             : $query->where('staff_id', $duty['staff_id'] ?? null);
 
-        $clash = $query->get()->first(fn (StaffDutySchedule $other) => $this->overlaps($other->toArray(), $duty));
+        $clash = $query->get()->first(fn (StaffDutySchedule $other) => $this->overlaps($other->toArray(), $duty, $conflict === self::STAFF));
         if (! $clash) {
             return self::message($conflict);
         }

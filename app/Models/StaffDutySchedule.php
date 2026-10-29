@@ -8,11 +8,15 @@ namespace App\Models;
  * midnight into `end_date`. `buffer_time` ("HH:MM") is travel time kept
  * free afterwards.
  *
- * Caretaker duties are `live_in`: the caretaker stays with the patient
+ * A duty is either a shift (start and end time, e.g. 5, 10 or 12 hours,
+ * signed in and out; several days are scheduled as one duty per day) or
+ * `live_in` (24 hours): the nurse or caretaker stays with the patient
  * around the clock from `date` to `end_date` (often months), so there are
- * no visit times; the duty occupies whole days. `care_tasks` lists what
- * the caretaker does each day, and `skipped_dates` the days they are away
- * (reasons and covers are in CareLog).
+ * no visit times and no sign in; the duty occupies whole days and is
+ * logged daily instead. `care_tasks` lists what is done each day, and
+ * `skipped_dates` the days they are away (reasons and covers are in
+ * CareLog). `service` (Nursing, Care taking or custom) and `fees` default
+ * to the patient's.
  */
 class StaffDutySchedule extends TenantModel
 {
@@ -20,11 +24,14 @@ class StaffDutySchedule extends TenantModel
     public const SCHEDULE_FIELDS = [
         'staff_id', 'role', 'patient_id', 'driver',
         'date', 'end_date', 'start_time', 'end_time', 'schedule_hour', 'buffer_time',
-        'care_tasks',
+        'care_tasks', 'service', 'fees',
     ];
 
-    /** Roles whose duties are 24-hour, multi-day stays. */
+    /** Roles whose duties are 24-hour stays when the client does not say (older apps). */
     public const LIVE_IN_ROLES = ['caretaker'];
+
+    /** Most daily shifts scheduled in one go (about six months). */
+    public const MAX_SERIES = 200;
 
     protected $table = 'staff_duty_schedule';
 

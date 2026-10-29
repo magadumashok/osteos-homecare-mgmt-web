@@ -8,7 +8,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Schedule (POST) or reschedule (PUT) a staff duty. `driver` is the driver's name.
- * Caretaker (live-in) duties take only dates and `care_tasks`; their times are set by the server.
+ * `live_in` (24 hours) duties take only dates and `care_tasks`; their times are
+ * set by the server. Older apps send no `live_in`: a caretaker without times is live-in.
  */
 class DutyRequest extends FormRequest
 {
@@ -20,9 +21,10 @@ class DutyRequest extends FormRequest
     public function rules(): array
     {
         $required = $this->isMethod('post') ? 'required' : 'sometimes';
-        $time = StaffDutySchedule::isLiveInRole($this->input('role'))
-            ? ['nullable', Rules::TIME]
-            : [$required, Rules::TIME];
+        $liveIn = $this->has('live_in')
+            ? $this->boolean('live_in')
+            : StaffDutySchedule::isLiveInRole($this->input('role')) && ! $this->filled('start_time');
+        $time = $liveIn ? ['nullable', Rules::TIME] : [$required, Rules::TIME];
 
         return [
             'staff_id' => [$required, 'string'],
@@ -35,8 +37,11 @@ class DutyRequest extends FormRequest
             'end_time' => $time,
             'schedule_hour' => ['nullable'],
             'buffer_time' => ['nullable', Rules::TIME],
+            'live_in' => ['nullable', 'boolean'],
             'care_tasks' => ['nullable', 'array', 'max:40'],
             'care_tasks.*' => ['string', 'max:120'],
+            'service' => ['nullable', 'string', 'max:120'],
+            'fees' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

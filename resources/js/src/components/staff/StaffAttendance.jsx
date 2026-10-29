@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MenuItem, TextField } from "@mui/material";
-import DataTable from "../table/DataTable";
+import DataTable, { TableBtn } from "../table/DataTable";
 import { Badge, Card, Loader, PageHeader, StatStrip } from "../common/ui";
+import { AttendanceMapDialog, dutyTime, hasAttendanceLocation } from "../patients/tabs/SchedulesTab";
 import useAsync from "../../hooks/useAsync";
 import { duties, staff } from "../../api/homecare";
 import { fmtDate, fmtTime, humanize, isYes } from "../../utilities/format";
@@ -24,6 +25,7 @@ const tripStatus = (t) => {
 const StaffAttendance = () => {
     const { id } = useParams();
     const [patientId, setPatientId] = useState("");
+    const [mapFor, setMapFor] = useState(null);
 
     const { data: member } = useAsync(() => staff.show(id), [id]);
     const isDriver = (member?.roles ?? []).includes("transport");
@@ -63,12 +65,19 @@ const StaffAttendance = () => {
     ] : [
         { header: "Date", accessorKey: "date", cell: ({ row }) => fmtDate(row.original.date) },
         { header: "Patient", accessorKey: "patient_name", cell: ({ row }) => row.original.patient_name ?? row.original.patient_id },
-        { header: "Duty", id: "slot", cell: ({ row }) => `${fmtTime(row.original.start_time)} – ${fmtTime(row.original.end_time)}` },
+        { header: "Duty", id: "slot", cell: ({ row }) => dutyTime(row.original) },
         { header: "Signed in", accessorKey: "signin_time", cell: ({ row }) => fmtTime(row.original.signin_time) },
         { header: "Signed out", accessorKey: "signout_time", cell: ({ row }) => fmtTime(row.original.signout_time) },
         { header: "Status", id: "status", cell: ({ row }) => dutyStatus(row.original) },
         { header: "Reason", accessorKey: "not_attended_reason", cell: ({ row }) => row.original.not_attended_reason || "—" },
-    ]), [isDriver]);
+        {
+            header: "Location",
+            id: "location",
+            cell: ({ row }) => (hasAttendanceLocation(row.original)
+                ? <TableBtn variant="secondary" onClick={() => setMapFor({ ...row.original, staff_name: member?.name })}>Map</TableBtn>
+                : "—"),
+        },
+    ]), [isDriver, member]);
 
     if (!member) return <Loader />;
 
@@ -87,6 +96,7 @@ const StaffAttendance = () => {
             >
                 <DataTable data={rows} columns={columns} emptyMessage={loading ? "Loading…" : "No records yet"} />
             </Card>
+            {mapFor && <AttendanceMapDialog duty={mapFor} onClose={() => setMapFor(null)} />}
         </>
     );
 };

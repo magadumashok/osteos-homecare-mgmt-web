@@ -7,7 +7,7 @@ import DataTable, { ActionCell, TableBtn } from "../table/DataTable";
 import RHFTextField from "../forms/RHFTextField";
 import RHFSelect from "../forms/RHFSelect";
 import { Button, Card, Modal, PageHeader, StatStrip, colors } from "../common/ui";
-import { dutyStatus, dutyTime } from "../patients/tabs/SchedulesTab";
+import { AttendanceMapDialog, PresencePhotosDialog, dutyStatus, dutyTime, hasAttendanceLocation } from "../patients/tabs/SchedulesTab";
 import useAsync from "../../hooks/useAsync";
 import usePermission from "../../hooks/usePermission";
 import { driverTrips, duties, staff as staffApi } from "../../api/homecare";
@@ -109,6 +109,8 @@ const DutyList = () => {
     const [date, setDate] = useState(today());
     const [booking, setBooking] = useState(null);
     const [shortVisit, setShortVisit] = useState(false);
+    const [mapFor, setMapFor] = useState(null);
+    const [photos, setPhotos] = useState(null);
 
     const { data: rows, loading } = useAsync(
         () => duties.list(mode === "day" ? { date } : { since: date }),
@@ -145,6 +147,8 @@ const DutyList = () => {
                 return (
                     <ActionCell>
                         {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
+                        {hasAttendanceLocation(d) && <TableBtn variant="secondary" onClick={() => setMapFor(d)}>Location</TableBtn>}
+                        {Array.isArray(d.presence_photos) && d.presence_photos.length > 0 && <TableBtn variant="secondary" onClick={() => setPhotos(d)}>Photos ({d.presence_photos.length})</TableBtn>}
                         {can("schedules.manage") && !done && <TableBtn onClick={() => navigate(`/schedules/${d._id}/edit`)}>Reschedule</TableBtn>}
                         {can("schedules.manage") && !done && !isYes(d.live_in) && <TableBtn variant="secondary" onClick={() => setBooking({ ...d, staff_name: d.staff_name ?? d.name })}>Book driver</TableBtn>}
                     </ActionCell>
@@ -188,6 +192,8 @@ const DutyList = () => {
             </Card>
             {booking && <DriverDialog duty={booking} onClose={() => setBooking(null)} />}
             {shortVisit && <ShortVisitDialog onClose={() => setShortVisit(false)} />}
+            {mapFor && <AttendanceMapDialog duty={mapFor} onClose={() => setMapFor(null)} />}
+            {photos && <PresencePhotosDialog duty={photos} onClose={() => setPhotos(null)} />}
         </>
     );
 };
