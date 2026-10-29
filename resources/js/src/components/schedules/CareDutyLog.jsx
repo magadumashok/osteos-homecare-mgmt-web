@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, Card, EmptyState, InfoGrid, Loader, PageHeader, colors } from "../common/ui";
-import { PresencePhotosDialog, dutyStatus } from "../patients/tabs/SchedulesTab";
+import { PresencePhotosDialog, dutyStatus, dutyTime } from "../patients/tabs/SchedulesTab";
 import { CareLogDetail, CoverDialog, careDayStatus } from "./CareUpdates";
 import useAsync from "../../hooks/useAsync";
 import usePermission from "../../hooks/usePermission";
@@ -29,7 +29,8 @@ const CareDutyLog = () => {
     const days = useMemo(() => {
         if (!duty) return [];
         const logs = Object.fromEntries((data.logs ?? []).map((l) => [l.date, l]));
-        const last = duty.end_date < today() ? duty.end_date : today();
+        // A shift has one update, filed under its start date.
+        const last = !duty.live_in ? duty.date : duty.end_date < today() ? duty.end_date : today();
         const list = [];
         for (let d = last; d >= duty.date && list.length < 400; d = addDays(d, -1)) list.push({ date: d, log: logs[d] });
         // Days skipped ahead of time are after "today" but still worth showing.
@@ -47,7 +48,7 @@ const CareDutyLog = () => {
             <PageHeader
                 eyebrow="Caretaker care log"
                 title={duty.patient_name ?? duty.patient_id}
-                subtitle={`${duty.staff_name ?? duty.staff_id} · 24-hour care ${fmtDate(duty.date)} → ${fmtDate(duty.end_date)}`}
+                subtitle={`${duty.staff_name ?? duty.staff_id} · ${duty.live_in ? `24-hour care ${fmtDate(duty.date)} → ${fmtDate(duty.end_date)}` : `${fmtDate(duty.date)}, ${dutyTime(duty)}`}`}
                 actions={
                     <>
                         <Button variant="secondary" onClick={() => navigate(`/patients/${duty.patient_id}?tab=schedules`)}>Patient schedules</Button>

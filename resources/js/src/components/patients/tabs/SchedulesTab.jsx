@@ -10,6 +10,12 @@ import { duties, patients as patientsApi } from "../../../api/homecare";
 import { errorMessage } from "../../../api/client";
 import { fmtDate, fmtTime, humanize, isYes, today } from "../../../utilities/format";
 
+/** 24-hour duties, and shifts with care tasks (e.g. a caretaker's 12-hour shift), have a care log. */
+export const hasCareLog = (d) => isYes(d.live_in) || (Array.isArray(d.care_tasks) && d.care_tasks.length > 0);
+
+/** "28 Oct 2026", or "28 Oct 2026 → 27 Jan 2027" when the duty runs over several days. */
+export const dutyDates = (d) => (d.end_date && d.end_date !== d.date ? `${fmtDate(d.date)} → ${fmtDate(d.end_date)}` : fmtDate(d.date));
+
 /** Visit times, or "24-hour care" for a caretaker's live-in duty. */
 export const dutyTime = (d) => (isYes(d.live_in) ? "24-hour care" : `${fmtTime(d.start_time)} – ${fmtTime(d.end_time)}`);
 
@@ -153,7 +159,7 @@ const SchedulesTab = ({ patient }) => {
     const [mapFor, setMapFor] = useState(null);
 
     const columns = useMemo(() => [
-        { header: "Date", accessorKey: "date", cell: ({ row }) => `${fmtDate(row.original.date)}${row.original.end_date && row.original.end_date !== row.original.date ? ` → ${fmtDate(row.original.end_date)}` : ""}` },
+        { header: "Date", accessorKey: "date", cell: ({ row }) => dutyDates(row.original) },
         { header: "Time", id: "time", cell: ({ row }) => dutyTime(row.original) },
         { header: "Staff", accessorKey: "staff_name", cell: ({ row }) => <>{row.original.staff_name ?? row.original.staff_id}<div style={{ fontSize: 11, color: colors.muted }}>{humanize(row.original.role)}</div></> },
         { header: "Signed in / out", id: "attendance", cell: ({ row }) => `${fmtTime(row.original.signin_time)} / ${fmtTime(row.original.signout_time)}` },
@@ -166,7 +172,7 @@ const SchedulesTab = ({ patient }) => {
                 const done = isYes(d.sign_out) || isYes(d.not_attended);
                 return (
                     <ActionCell>
-                        {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
+                        {hasCareLog(d) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
                         {hasAttendanceLocation(d) && <TableBtn variant="secondary" onClick={() => setMapFor({ ...d, patient_name: patient.patient_name, address: patient.address })}>Location</TableBtn>}
                         {Array.isArray(d.presence_photos) && d.presence_photos.length > 0 && <TableBtn variant="secondary" onClick={() => setPhotos({ ...d, patient_name: patient.patient_name })}>Photos ({d.presence_photos.length})</TableBtn>}
                         {canAny(["invoices.view", "patients.view"]) && <TableBtn variant="secondary" onClick={() => navigate(`/patients/${patient.username}/duties/${d._id}/invoice`)}>Invoice</TableBtn>}

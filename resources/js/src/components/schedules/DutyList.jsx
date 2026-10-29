@@ -7,7 +7,7 @@ import DataTable, { ActionCell, TableBtn } from "../table/DataTable";
 import RHFTextField from "../forms/RHFTextField";
 import RHFSelect from "../forms/RHFSelect";
 import { Button, Card, Modal, PageHeader, StatStrip, colors } from "../common/ui";
-import { AttendanceMapDialog, PresencePhotosDialog, dutyStatus, dutyTime, hasAttendanceLocation } from "../patients/tabs/SchedulesTab";
+import { AttendanceMapDialog, PresencePhotosDialog, dutyDates, dutyStatus, dutyTime, hasAttendanceLocation, hasCareLog } from "../patients/tabs/SchedulesTab";
 import useAsync from "../../hooks/useAsync";
 import usePermission from "../../hooks/usePermission";
 import { driverTrips, duties, staff as staffApi } from "../../api/homecare";
@@ -119,7 +119,7 @@ const DutyList = () => {
     );
 
     const columns = useMemo(() => [
-        { header: "Date", accessorKey: "date", cell: ({ row }) => isYes(row.original.live_in) && row.original.end_date !== row.original.date ? `${fmtDate(row.original.date)} → ${fmtDate(row.original.end_date)}` : fmtDate(row.original.date) },
+        { header: "Start → end date", accessorKey: "date", cell: ({ row }) => dutyDates(row.original) },
         { header: "Time", id: "time", cell: ({ row }) => dutyTime(row.original) },
         {
             header: "Patient",
@@ -146,7 +146,7 @@ const DutyList = () => {
                 const done = isYes(d.sign_out) || isYes(d.not_attended);
                 return (
                     <ActionCell>
-                        {isYes(d.live_in) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
+                        {hasCareLog(d) && <TableBtn onClick={() => navigate(`/schedules/${d._id}/care`)}>Care log</TableBtn>}
                         {hasAttendanceLocation(d) && <TableBtn variant="secondary" onClick={() => setMapFor(d)}>Location</TableBtn>}
                         {Array.isArray(d.presence_photos) && d.presence_photos.length > 0 && <TableBtn variant="secondary" onClick={() => setPhotos(d)}>Photos ({d.presence_photos.length})</TableBtn>}
                         {can("schedules.manage") && !done && <TableBtn onClick={() => navigate(`/schedules/${d._id}/edit`)}>Reschedule</TableBtn>}

@@ -24,6 +24,8 @@ class DutySeriesRequest extends FormRequest
             'end_time' => ['required', Rules::TIME],
             'schedule_hour' => ['nullable'],
             'buffer_time' => ['nullable', Rules::TIME],
+            'care_tasks' => ['nullable', 'array', 'max:40'],
+            'care_tasks.*' => ['string', 'max:120'],
             'service' => ['nullable', 'string', 'max:120'],
             'fees' => ['nullable', 'numeric', 'min:0'],
             'ranges' => ['required', 'array', 'min:1', 'max:'.StaffDutySchedule::MAX_SERIES],

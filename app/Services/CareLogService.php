@@ -31,15 +31,23 @@ class CareLogService
     }
 
     /**
-     * The admin's view of a day: every 24-hour duty running that day (with
-     * patient and caretaker names) and its `log` for the day, or null when
-     * the caretaker has not sent an update yet.
+     * The admin's view of a day: every 24-hour duty running that day, and
+     * every shift that day with care tasks (e.g. a caretaker's 12-hour
+     * shift), with patient and staff names and the day's `log`, or null
+     * when no update has been sent yet.
      */
     public function day(string $date, ?string $patientId = null): Collection
     {
-        $duties = $this->duties->liveInOn($date)
+        $stays = $this->duties->liveInOn($date)
             ->when($patientId, fn ($q) => $q->where('patient_id', $patientId))
             ->get();
+        $shifts = StaffDutySchedule::where('date', $date)
+            ->where('live_in', '!=', true)
+            ->where('not_attended', '!=', true)
+            ->where('care_tasks.0', 'exists', true)
+            ->when($patientId, fn ($q) => $q->where('patient_id', $patientId))
+            ->get();
+        $duties = $stays->concat($shifts);
 
         $logs = CareLog::where('date', $date)
             ->whereIn('duty_id', $duties->map(fn ($d) => (string) $d->getKey())->all())
@@ -54,13 +62,18 @@ class CareLogService
 
     /**
      * Save the caretaker's update for a day (one per duty and day; saving
-     * again replaces it). Symptoms are pushed to the admins straight away.
+     * again replaces it). A shift has one update, filed under its start
+     * date even when it runs past midnight. Symptoms are pushed to the
+     * admins straight away.
      *
      * @param  array{tasks?: list<array{name: string, done?: bool, time?: ?string, note?: ?string}>, symptoms?: ?string, notes?: ?string}  $data
      */
     public function save(StaffDutySchedule $duty, string $date, array $data, User $by): CareLog
     {
-        $this->assertDay($duty, $date);
+        $this->assertDay($duty, $date, liveInOnly: false);
+        if (! $duty->live_in) {
+            $date = $duty->date;
+        }
 
         if ($date > now()->format('Y-m-d')) {
             throw ValidationException::withMessages(['date' => 'You can only update today or earlier days.']);
@@ -189,10 +202,11 @@ class CareLogService
         return $cover;
     }
 
-    private function assertDay(StaffDutySchedule $duty, string $date): void
+    /** Shifts have a care update too; skipping a day and covers are for 24-hour duties only. */
+    private function assertDay(StaffDutySchedule $duty, string $date, bool $liveInOnly = true): void
     {
-        if (! $duty->live_in) {
-            throw ValidationException::withMessages(['duty' => 'Only 24-hour caretaker duties have a daily care log.']);
+        if ($liveInOnly && ! $duty->live_in) {
+            throw ValidationException::withMessages(['duty' => 'Only 24-hour duties can skip a day. Use "Can\'t attend" for a shift.']);
         }
         if (! $duty->covers($date)) {
             throw ValidationException::withMessages(['date' => "This duty runs from {$duty->date} to {$duty->end_date}."]);

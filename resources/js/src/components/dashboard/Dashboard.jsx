@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Grid } from "@mui/material";
 import { Badge, Button, Card, EmptyState, PageHeader, cardStyle, colors } from "../common/ui";
-import { dutyStatus, dutyTime } from "../patients/tabs/SchedulesTab";
+import { dutyDates, dutyStatus, dutyTime } from "../patients/tabs/SchedulesTab";
 import usePermission from "../../hooks/usePermission";
 import { assessments, duties, leads, patients } from "../../api/homecare";
 import { humanize, today } from "../../utilities/format";
@@ -62,7 +62,10 @@ const Dashboard = () => {
                 <Card label={can("schedules.view") ? "Today's duties" : "My duties today"} actions={can("schedules.view") && <Button variant="secondary" small onClick={() => navigate("/schedules")}>Open schedule</Button>}>
                     {todays.length ? todays.slice(0, 12).map((d) => (
                         <div key={d._id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: `1px solid ${colors.line}`, flexWrap: "wrap" }}>
-                            <div style={{ width: 120, fontSize: 13, fontWeight: 600, color: colors.ink }}>{dutyTime(d)}</div>
+                            <div style={{ width: 200, fontSize: 13, fontWeight: 600, color: colors.ink }}>
+                                {dutyTime(d)}
+                                <div style={{ fontSize: 12, fontWeight: 400, color: colors.muted }}>{dutyDates(d)}</div>
+                            </div>
                             <div style={{ flex: 1, minWidth: 180, fontSize: 13 }}>
                                 <strong>{d.patient_name ?? d.patient_id}</strong>
                                 <span style={{ color: colors.muted }}> · {d.staff_name ?? d.name ?? d.staff_id} ({humanize(d.role)})</span>

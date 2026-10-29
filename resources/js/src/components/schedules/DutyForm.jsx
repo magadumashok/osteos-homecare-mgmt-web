@@ -99,6 +99,8 @@ const DutyForm = () => {
         name: ["role", "hours", "date", "end_date", "start_time", "end_time", "patient_id", "service"],
     });
     const liveIn = hours === "24h";
+    // Caretakers tick off their tasks on shifts too; 24-hour duties of any role have them.
+    const showTasks = liveIn || role === "caretaker";
     const overnight = minutes(end) !== null && minutes(start) !== null && minutes(end) <= minutes(start);
 
     useEffect(() => {
@@ -173,12 +175,13 @@ const DutyForm = () => {
     const setHours = (value) => {
         if (!value) return;
         setValue("hours", value);
-        if (value === "24h") {
-            if (!endDate || endDate <= date) setValue("end_date", monthsLater(date, 1));
-            // A new caretaker stay starts with every standard task ticked.
-            if (!isEdit && !careTasks.length && role === "caretaker") setCareTasks(taskOptions);
-        }
+        if (value === "24h" && (!endDate || endDate <= date)) setValue("end_date", monthsLater(date, 1));
     };
+
+    // A new caretaker duty starts with every standard task ticked (shift or 24 hours).
+    useEffect(() => {
+        if (!isEdit && role === "caretaker") setCareTasks((current) => (current.length ? current : taskOptions));
+    }, [isEdit, role, taskOptions]);
 
     const toggleTask = (task) => setCareTasks((list) => (list.includes(task) ? list.filter((t) => t !== task) : [...list, task]));
     const addCustomTask = () => {
@@ -229,6 +232,7 @@ const DutyForm = () => {
                 const shift = {
                     ...common,
                     live_in: false,
+                    care_tasks: showTasks ? careTasks : [],
                     start_time: v.start_time,
                     end_time: v.end_time,
                     buffer_time: v.buffer_time,
@@ -279,14 +283,9 @@ const DutyForm = () => {
                         <Grid item xs={12} sm={4}>
                             <RHFSelect name="role" control={control} label="Role *" options={ROLES} onChange={() => setValue("staff_id", "")} />
                         </Grid>
-                        <Grid item xs={12} sm={liveIn ? 8 : 4}>
+                        <Grid item xs={12} sm={8}>
                             <RHFSelect name="staff_id" control={control} label={`${humanize(role)} *`} options={staffList} rules={{ required: "Choose a staff member" }} />
                         </Grid>
-                        {!liveIn && (
-                            <Grid item xs={12} sm={4}>
-                                <RHFSelect name="driver" control={control} label="Driver" options={drivers} disabled={shiftDays.length > 1} />
-                            </Grid>
-                        )}
                         <Grid item xs={12} sm={service === "other" ? 4 : 8}>
                             <RHFSelect name="service" control={control} label="Service" options={SERVICE_OPTIONS} />
                         </Grid>
@@ -392,9 +391,11 @@ const DutyForm = () => {
                     )}
                 </Card>
 
-                {liveIn && (
-                    <Card label="Daily tasks" style={{ marginTop: 16 }}>
-                        <p style={{ fontSize: 13, color: colors.body, marginTop: 0 }}>Ticked off in the daily update (optional).</p>
+                {showTasks && (
+                    <Card label={liveIn ? "Daily tasks" : "Tasks each shift"} style={{ marginTop: 16 }}>
+                        <p style={{ fontSize: 13, color: colors.body, marginTop: 0 }}>
+                            {liveIn ? "Ticked off in the daily update (optional)." : "Ticked off in the shift's care update (optional)."}
+                        </p>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "0 16px" }}>
                             {taskOptions.map((task) => (
                                 <FormControlLabel
@@ -422,6 +423,19 @@ const DutyForm = () => {
                                 Add
                             </Button>
                         </div>
+                    </Card>
+                )}
+
+                {!liveIn && (
+                    <Card label="Driver" style={{ marginTop: 16 }}>
+                        <Grid container columnSpacing={2}>
+                            <Grid item xs={12} sm={6}>
+                                <RHFSelect name="driver" control={control} label="Driver" options={drivers} disabled={shiftDays.length > 1} />
+                            </Grid>
+                        </Grid>
+                        {shiftDays.length > 1 && (
+                            <div style={{ fontSize: 12, color: colors.muted }}>Drivers are booked for single shifts only (use "Book driver" on the duty board).</div>
+                        )}
                     </Card>
                 )}
 

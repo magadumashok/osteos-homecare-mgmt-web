@@ -114,7 +114,9 @@ const CareUpdates = () => {
                             <div style={{ flex: 1, minWidth: 220 }}>
                                 <strong style={{ color: colors.ink }}>{d.patient_name ?? d.patient_id}</strong>
                                 <span style={{ color: colors.muted, fontSize: 13 }}> · {d.staff_name ?? d.staff_id}{d.covers_duty_id ? " (cover)" : ""}</span>
-                                <div style={{ fontSize: 12, color: colors.muted }}>{fmtDate(d.date)} → {fmtDate(d.end_date)}</div>
+                                <div style={{ fontSize: 12, color: colors.muted }}>
+                                    {d.live_in ? `24-hour care · ${fmtDate(d.date)} → ${fmtDate(d.end_date)}` : `Shift ${fmtTime(d.start_time)} – ${fmtTime(d.end_time)}`}
+                                </div>
                             </div>
                             {careDayStatus(d.log, date)}
                             {can("schedules.manage") && d.log?.status === "skipped" && !d.log.cover_duty_id && (
