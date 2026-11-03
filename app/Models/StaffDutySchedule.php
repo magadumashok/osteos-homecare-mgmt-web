@@ -42,6 +42,8 @@ class StaffDutySchedule extends TenantModel
         'sign_out', 'signout_time', 'signout_latitude', 'signout_longitude',
         'not_attended', 'not_attended_reason', 'specimen_images',
         'live_in', 'skipped_dates', 'covers_duty_id', 'presence_photos',
+        // The staff member's day rate when they signed out (for salary).
+        'daily_salary',
     ];
 
     /** Attendance fields every new or rescheduled duty starts with. */

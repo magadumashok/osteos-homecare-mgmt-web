@@ -64,7 +64,9 @@ class DutyScheduleController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return $this->response(true, '', 200, $this->duties->findOrFail($id));
+        $duty = $this->duties->findOrFail($id);
+
+        return $this->response(true, '', 200, $this->duties->withDayAttendance(collect([$duty]), $this->duties->today())->first());
     }
 
     public function update(DutyRequest $request, string $id): JsonResponse
@@ -79,6 +81,8 @@ class DutyScheduleController extends Controller
     {
         $data = $request->validate([
             'signin_time' => ['nullable', Rules::TIME],
+            // Coordinators: the day of a 24-hour duty to sign in for (default today).
+            'date' => ['nullable', Rules::DATE],
             'signin_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'signin_longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);

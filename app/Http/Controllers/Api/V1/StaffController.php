@@ -52,7 +52,7 @@ class StaffController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return $this->response(true, '', 200, $this->staff->findOrFail($id));
+        return $this->response(true, '', 200, $this->staff->findOrFail($id)->makeVisible('daily_salary'));
     }
 
     public function update(StaffRequest $request, string $id): JsonResponse

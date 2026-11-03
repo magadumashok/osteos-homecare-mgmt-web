@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\ScheduleConflictException;
 use App\Models\CareLog;
+use App\Models\DutyDay;
 use App\Models\StaffDutySchedule;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -131,6 +132,9 @@ class CareLogService
         $key = ['duty_id' => (string) $duty->getKey(), 'date' => $date];
         if (CareLog::where($key)->where('status', CareLog::LOGGED)->exists()) {
             throw ValidationException::withMessages(['date' => 'This day already has a care update.']);
+        }
+        if (DutyDay::where($key)->where('sign_in', true)->exists()) {
+            throw ValidationException::withMessages(['date' => 'You have already signed in for this day.']);
         }
 
         $duty->update(['skipped_dates' => array_values(array_unique([...(array) ($duty->skipped_dates ?? []), $date]))]);

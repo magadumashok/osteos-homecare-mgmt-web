@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\PatientLeadController;
 use App\Http\Controllers\Api\V1\PrescriptionController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\SalaryController;
 use App\Http\Controllers\Api\V1\ShortVisitController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\VitalSignController;
@@ -154,6 +155,9 @@ Route::prefix('v1')->group(function () {
         Route::post('driver-trips/{id}/drop', [DriverTripController::class, 'drop'])->middleware('permission:attendance.record');
 
         Route::get('attendance/staff/{staffId}', [DutyScheduleController::class, 'attendance'])->middleware('permission:attendance.view');
+
+        // Salary: days with a completed sign in and out x the day rate (?from=&to=)
+        Route::get('salary/mine', [SalaryController::class, 'mine'])->middleware('permission:attendance.record');
         Route::get('attendance/drivers/{driverId}', [DriverTripController::class, 'history'])->middleware('permission:attendance.view');
 
         // Staff and roles
@@ -164,6 +168,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('staff/{id}', [StaffController::class, 'destroy'])->middleware('permission:staff.manage');
         Route::put('staff/{id}/roles', [StaffController::class, 'updateRoles'])->middleware('permission:roles.manage');
         Route::get('staff/{id}/patients', [StaffController::class, 'patients'])->middleware('permission:attendance.view');
+        Route::get('staff/{id}/salary', [SalaryController::class, 'forStaff'])->middleware('permission:attendance.view');
 
         Route::middleware('permission:roles.manage')->group(function () {
             Route::get('roles', [RoleController::class, 'index']);

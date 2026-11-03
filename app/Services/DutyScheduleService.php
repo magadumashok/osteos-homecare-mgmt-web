@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\ScheduleConflictException;
 use App\Models\DriverSchedule;
+use App\Models\DutyDay;
 use App\Models\Patient;
 use App\Models\StaffDutySchedule;
 use App\Models\User;
@@ -30,6 +31,12 @@ class DutyScheduleService
         private readonly PushNotificationService $push,
         private readonly FileStorageService $files,
     ) {}
+
+    /** Today's date at the center (Y-m-d). */
+    public function today(): string
+    {
+        return CarbonImmutable::now($this->tenants->timezone())->format('Y-m-d');
+    }
 
     public function findOrFail(string $id): StaffDutySchedule
     {
@@ -160,14 +167,16 @@ class DutyScheduleService
      * side of the start time (center's local time), and not while they are
      * still signed in elsewhere or on a 24-hour duty. A coordinator signing
      * someone else in skips the time window. The time recorded is the
-     * server's, not the phone's.
+     * server's, not the phone's. A 24-hour duty is signed in once a day.
      *
      * @throws ValidationException
      */
     public function signIn(StaffDutySchedule $duty, array $data, bool $enforceWindow = true): void
     {
         if ($duty->live_in) {
-            $this->refuse('24-hour duties have no sign in. Send the daily care update instead.');
+            $this->signInDay($duty, $data, $enforceWindow);
+
+            return;
         }
         if ($duty->not_attended) {
             $this->refuse('This duty was marked as not attended.');
@@ -205,11 +214,17 @@ class DutyScheduleService
     /**
      * End a visit: only after signing in, and from the session's end time
      * on (a coordinator signing someone else out skips the time check).
+     * The staff member's day rate is kept with the completed visit.
      *
      * @throws ValidationException
      */
     public function signOut(StaffDutySchedule $duty, array $data, bool $enforceWindow = true): void
     {
+        if ($duty->live_in) {
+            $this->signOutDay($duty, $data);
+
+            return;
+        }
         if (! $duty->sign_in) {
             $this->refuse('Sign in to this duty first.');
         }
@@ -231,7 +246,125 @@ class DutyScheduleService
             'signout_time' => $now->format('H:i'),
             'signout_latitude' => $data['signout_latitude'] ?? null,
             'signout_longitude' => $data['signout_longitude'] ?? null,
+            'daily_salary' => $this->dayRate($duty->staff_id),
         ]);
+    }
+
+    /**
+     * Start a day of a 24-hour duty: today (a coordinator may give another
+     * day), on a day the duty runs and was not skipped, after signing out
+     * of the previous day. No time window: the stay is round the clock.
+     *
+     * @throws ValidationException
+     */
+    private function signInDay(StaffDutySchedule $duty, array $data, bool $enforceWindow): void
+    {
+        $now = CarbonImmutable::now($this->tenants->timezone());
+        $date = ! $enforceWindow && ! empty($data['date']) ? $data['date'] : $now->format('Y-m-d');
+
+        if ($duty->not_attended) {
+            $this->refuse('This duty was cancelled.');
+        }
+        if (! $duty->covers($date) || $duty->isSkipped($date)) {
+            $this->refuse('This duty does not run on '.CarbonImmutable::parse($date)->format('j M').'.');
+        }
+
+        $open = $this->openDay($duty);
+        if ($open && $open->date !== $date) {
+            $this->refuse('Sign out of '.CarbonImmutable::parse($open->date)->format('j M').' first.');
+        }
+        if (DutyDay::where('duty_id', (string) $duty->getKey())->where('date', $date)->where('sign_in', true)->exists()) {
+            $this->refuse('You have already signed in for this day.');
+        }
+        if ($busy = $this->busyWith($duty)) {
+            $this->refuse($busy);
+        }
+
+        DutyDay::updateOrCreate(
+            ['duty_id' => (string) $duty->getKey(), 'date' => $date],
+            [
+                'patient_id' => $duty->patient_id,
+                'staff_id' => $duty->staff_id,
+                'sign_in' => true,
+                'signin_time' => $now->format('H:i'),
+                'signin_latitude' => $data['signin_latitude'] ?? null,
+                'signin_longitude' => $data['signin_longitude'] ?? null,
+                'sign_out' => false,
+                'signout_time' => '',
+            ],
+        );
+    }
+
+    /**
+     * End the open day of a 24-hour duty, at any time (e.g. at handover
+     * the next morning). The day stays the one signed in on.
+     *
+     * @throws ValidationException
+     */
+    private function signOutDay(StaffDutySchedule $duty, array $data): void
+    {
+        $day = $this->openDay($duty) ?? $this->refuse('Sign in for the day first.');
+        $now = CarbonImmutable::now($this->tenants->timezone());
+
+        $day->update([
+            'sign_out' => true,
+            'signout_time' => $now->format('H:i'),
+            'signout_date' => $now->format('Y-m-d'),
+            'signout_latitude' => $data['signout_latitude'] ?? null,
+            'signout_longitude' => $data['signout_longitude'] ?? null,
+            'daily_salary' => $this->dayRate($duty->staff_id),
+        ]);
+    }
+
+    /** The day of a 24-hour duty signed in to and not yet signed out of. */
+    private function openDay(StaffDutySchedule $duty): ?DutyDay
+    {
+        return DutyDay::where('duty_id', (string) $duty->getKey())
+            ->where('sign_in', true)
+            ->where('sign_out', '!=', true)
+            ->orderBy('date', 'desc')
+            ->first();
+    }
+
+    /** The staff member's current pay for a day's work, or null when not set. */
+    private function dayRate(string $staffId): ?float
+    {
+        $rate = $this->users->find($staffId)?->daily_salary;
+
+        return is_numeric($rate) ? (float) $rate : null;
+    }
+
+    /**
+     * Show each 24-hour duty's sign in and out for a date the way a shift
+     * carries them, so the apps show the same buttons. A day still open
+     * from earlier (not signed out yet) is shown instead of an empty one.
+     */
+    public function withDayAttendance(Collection $duties, string $date): Collection
+    {
+        $ids = $duties->filter(fn (StaffDutySchedule $d) => $d->live_in)->map(fn ($d) => (string) $d->getKey())->values();
+        if ($ids->isEmpty()) {
+            return $duties;
+        }
+
+        $days = DutyDay::whereIn('duty_id', $ids->all())
+            ->where(fn ($q) => $q->where('date', $date)->orWhere(fn ($q) => $q->where('sign_in', true)->where('sign_out', '!=', true)))
+            ->get()
+            ->groupBy('duty_id');
+
+        return $duties->each(function (StaffDutySchedule $duty) use ($days, $date) {
+            if (! $duty->live_in) {
+                return;
+            }
+            $records = $days->get((string) $duty->getKey(), collect());
+            $day = $records->firstWhere('date', $date)
+                ?? $records->first(fn (DutyDay $d) => $d->sign_in && ! $d->sign_out && $d->date < $date);
+
+            $duty->attendance_date = $day?->date ?? $date;
+            $duty->sign_in = (bool) $day?->sign_in;
+            $duty->signin_time = $day?->signin_time ?? '';
+            $duty->sign_out = (bool) $day?->sign_out;
+            $duty->signout_time = $day?->signout_time ?? '';
+        });
     }
 
     /**
@@ -293,6 +426,17 @@ class DutyScheduleService
             return "You are still signed in to your duty with {$name}. Sign out of it first.";
         }
 
+        $openDay = DutyDay::where('staff_id', $duty->staff_id)
+            ->where('duty_id', '!=', (string) $duty->getKey())
+            ->where('sign_in', true)
+            ->where('sign_out', '!=', true)
+            ->first();
+        if ($openDay) {
+            $name = $this->patients->find($openDay->patient_id)?->patient_name ?? $openDay->patient_id;
+
+            return "You are still signed in to your 24-hour duty with {$name}. Sign out of it first.";
+        }
+
         $stay = $this->liveInOn($today)
             ->where('staff_id', $duty->staff_id)
             ->where('_id', '!=', $duty->getKey())
@@ -348,7 +492,7 @@ class DutyScheduleService
 
         $duties = $liveIn->concat($visits)->sortBy('start_time')->values();
 
-        return $this->withPatients($duties, withAddress: true);
+        return $this->withPatients($this->withDayAttendance($duties, $date), withAddress: true);
     }
 
     /** Every duty starting on a date, with staff and patient names (for booking drivers). */
@@ -365,7 +509,7 @@ class DutyScheduleService
         $running = $this->liveInOn($date)->where('date', '<', $date)->get();
         $duties = $running->concat(StaffDutySchedule::where('date', $date)->orderBy('start_time')->get());
 
-        return $this->decorate($duties);
+        return $this->decorate($this->withDayAttendance($duties, $date));
     }
 
     /** Live-in duties running on a date (not cancelled). */

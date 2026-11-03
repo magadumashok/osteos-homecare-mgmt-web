@@ -36,11 +36,17 @@ class User extends Authenticatable implements JWTSubject
         'country', 'region', 'city', 'address',
         'address',  'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
+        'daily_salary',
     ];
 
+    /**
+     * `daily_salary` is pay per day worked. Hidden because users are listed
+     * to every colleague (directory); shown only to admins and the user.
+     */
     protected $hidden = [
         'password',
         'remember_token',
+        'daily_salary',
     ];
 
     protected function casts(): array

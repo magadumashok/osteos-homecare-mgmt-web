@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { MenuItem, TextField } from "@mui/material";
 import DataTable, { TableBtn } from "../table/DataTable";
 import { Badge, Card, Loader, PageHeader, StatStrip } from "../common/ui";
+import SalaryCard from "./SalaryCard";
 import { AttendanceMapDialog, dutyTime, hasAttendanceLocation } from "../patients/tabs/SchedulesTab";
 import useAsync from "../../hooks/useAsync";
 import { duties, staff } from "../../api/homecare";
@@ -96,6 +97,7 @@ const StaffAttendance = () => {
             >
                 <DataTable data={rows} columns={columns} emptyMessage={loading ? "Loading…" : "No records yet"} />
             </Card>
+            {!isDriver && <SalaryCard staffId={id} />}
             {mapFor && <AttendanceMapDialog duty={mapFor} onClose={() => setMapFor(null)} />}
         </>
     );

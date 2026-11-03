@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Grid } from "@mui/material";
 import { Badge, Button, Card, EmptyState, PageHeader, cardStyle, colors } from "../common/ui";
+import SalaryCard from "../staff/SalaryCard";
 import { dutyDates, dutyStatus, dutyTime } from "../patients/tabs/SchedulesTab";
 import usePermission from "../../hooks/usePermission";
 import { assessments, duties, leads, patients } from "../../api/homecare";
@@ -76,6 +77,9 @@ const Dashboard = () => {
                     )) : <EmptyState title="No duties today" />}
                 </Card>
             )}
+
+            {/* Staff who sign in to duties see what they have earned. */}
+            {user?.user_type === "staff" && can("attendance.record") && <SalaryCard title="My salary" />}
         </>
     );
 };

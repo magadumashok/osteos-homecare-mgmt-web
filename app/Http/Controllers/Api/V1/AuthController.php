@@ -158,13 +158,14 @@ class AuthController extends Controller
     private function session(User $user): array
     {
         if (! $user->homecare_id) {
-            return ['user' => $user, 'homecare' => null, 'permissions' => []];
+            return ['user' => $user->makeVisible('daily_salary'), 'homecare' => null, 'permissions' => []];
         }
 
         $this->tenants->use($user->homecare_id);
 
         return [
-            'user' => $user,
+            // Users see their own day rate (salary on their dashboard).
+            'user' => $user->makeVisible('daily_salary'),
             'homecare' => Homecare::where('homecare_id', $user->homecare_id)->first(['homecare_id', 'name', 'owner', 'email', 'mobile', 'address', 'city', 'region', 'country', 'center_id']),
             'permissions' => $this->permissions->for($user),
         ];

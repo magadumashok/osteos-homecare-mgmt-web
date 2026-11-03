@@ -38,7 +38,7 @@ const StaffForm = () => {
             // userID: "",
             role: "", roles: [], mobile: "", 
             // alternate_mobile: "",
-            email: "", age: "",
+            email: "", age: "", daily_salary: "",
             password: "", confirm_password: "", 
             // identity_type: "", identity_number: "",
             address: EMPTY_ADDRESS
@@ -64,6 +64,7 @@ const StaffForm = () => {
                     name: u.name ?? "", mobile: u.mobile ?? "", 
                     // alternate_mobile: u.alternate_mobile ?? "",
                     email: u.email ?? "", age: u.age ?? "", roles: u.roles ?? [],
+                    daily_salary: u.daily_salary ?? "",
                     // identity_type: u.identity_type ?? "", identity_number: u.identity_number ?? "",
                     address: { ...EMPTY_ADDRESS, ...(u.address ?? {}) },
                     // permanent_address: { ...EMPTY_ADDRESS, ...(u.permanent_address ?? {}) },
@@ -88,6 +89,8 @@ const StaffForm = () => {
                 // identity_type: values.identity_type, identity_number: values.identity_number,
             }),
             address: compact(values.address),
+            // Sent even when cleared, so a salary can be removed.
+            daily_salary: values.daily_salary === "" || values.daily_salary === null ? null : Number(values.daily_salary),
             // permanent_address: compact(sameAddress ? values.temporary_address : values.permanent_address),
         };
 
@@ -138,6 +141,17 @@ const StaffForm = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <RHFTextField name="mobile" control={control} label="Mobile (without country code) *" rules={{ required: "Mobile is required", pattern: { value: /^\+?[\d\s-]{6,20}$/, message: "Enter the number using digits" } }} />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <RHFTextField
+                                name="daily_salary"
+                                control={control}
+                                label="Salary (1 day)"
+                                type="number"
+                                inputProps={{ min: 0, step: "any" }}
+                                rules={{ min: { value: 0, message: "Cannot be negative" } }}
+                                helperText="Paid for each day with a completed sign in and sign out"
+                            />
                         </Grid>
                         {/* <Grid item xs={12} sm={6}>
                             <RHFTextField name="alternate_mobile" control={control} label="Alternate mobile" />

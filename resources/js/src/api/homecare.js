@@ -45,6 +45,12 @@ export const staff = {
     patients: (id) => get(`staff/${enc(id)}/patients`),
 };
 
+// Days worked x day rate; params { from, to } (YYYY-MM-DD).
+export const salary = {
+    mine: (params) => get("salary/mine", params),
+    forStaff: (id, params) => get(`staff/${enc(id)}/salary`, params),
+};
+
 export const roles = {
     list: () => get("roles"),
     permissions: () => get("permissions"),
