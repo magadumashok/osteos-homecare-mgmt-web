@@ -17,7 +17,10 @@ export const hasCareLog = (d) => isYes(d.live_in) || (Array.isArray(d.care_tasks
 export const dutyDates = (d) => (d.end_date && d.end_date !== d.date ? `${fmtDate(d.date)} → ${fmtDate(d.end_date)}` : fmtDate(d.date));
 
 /** Visit times, or "24-hour care" for a caretaker's live-in duty. */
-export const dutyTime = (d) => (isYes(d.live_in) ? "24-hour care" : `${fmtTime(d.start_time)} – ${fmtTime(d.end_time)}`);
+export const dutyTime = (d) => {
+    if (!isYes(d.live_in)) return `${fmtTime(d.start_time)} – ${fmtTime(d.end_time)}`;
+    return d.day_start_time ? `24-hour care from ${fmtTime(d.day_start_time)}` : "24-hour care";
+};
 
 export const dutyStatus = (d) => {
     if (isYes(d.live_in)) {

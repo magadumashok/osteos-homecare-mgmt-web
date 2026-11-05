@@ -189,9 +189,8 @@ class DutyScheduleService
 
         if ($enforceWindow) {
             [$start] = $this->interval($duty);
-            $grace = config('homecare.attendance.signin_grace_minutes');
-            $from = $start->subMinutes($grace);
-            $until = $start->addMinutes($grace);
+            $from = $start->subMinutes(config('homecare.attendance.signin_early_minutes'));
+            $until = $start->addMinutes(config('homecare.attendance.signin_late_minutes'));
 
             if ($now->lt($from) || $now->gt($until)) {
                 $this->refuse("You can sign in only between {$from->format('g:i a')} and {$until->format('g:i a')} on {$start->format('j M')}."
@@ -212,8 +211,9 @@ class DutyScheduleService
     }
 
     /**
-     * End a visit: only after signing in, and from the session's end time
-     * on (a coordinator signing someone else out skips the time check).
+     * End a visit: only after signing in, and from a few minutes before the
+     * session's end time on (a coordinator signing someone else out skips
+     * the time check).
      * The staff member's day rate is kept with the completed visit.
      *
      * @throws ValidationException
@@ -221,7 +221,7 @@ class DutyScheduleService
     public function signOut(StaffDutySchedule $duty, array $data, bool $enforceWindow = true): void
     {
         if ($duty->live_in) {
-            $this->signOutDay($duty, $data);
+            $this->signOutDay($duty, $data, $enforceWindow);
 
             return;
         }
@@ -236,8 +236,9 @@ class DutyScheduleService
 
         if ($enforceWindow) {
             [, $end] = $this->interval($duty);
-            if ($now->lt($end)) {
-                $this->refuse("You can sign out from {$end->format('g:i a')} on {$end->format('j M')}, when the session ends.");
+            $from = $end->subMinutes(config('homecare.attendance.signout_early_minutes'));
+            if ($now->lt($from)) {
+                $this->refuse("You can sign out from {$from->format('g:i a')} on {$from->format('j M')}. The session ends at {$end->format('g:i a')}.");
             }
         }
 
@@ -253,14 +254,19 @@ class DutyScheduleService
     /**
      * Start a day of a 24-hour duty: today (a coordinator may give another
      * day), on a day the duty runs and was not skipped, after signing out
-     * of the previous day. No time window: the stay is round the clock.
+     * of the previous day. With a `day_start_time`, only within a few
+     * minutes of it, as for a shift; older duties without one have no window.
      *
      * @throws ValidationException
      */
     private function signInDay(StaffDutySchedule $duty, array $data, bool $enforceWindow): void
     {
         $now = CarbonImmutable::now($this->tenants->timezone());
-        $date = ! $enforceWindow && ! empty($data['date']) ? $data['date'] : $now->format('Y-m-d');
+        $early = config('homecare.attendance.signin_early_minutes');
+        $late = config('homecare.attendance.signin_late_minutes');
+        $timed = $enforceWindow && filled($duty->day_start_time);
+        $windowDay = $timed ? $duty->signInDayAt($now, $early, $late) : null;
+        $date = $windowDay ?? (! $enforceWindow && ! empty($data['date']) ? $data['date'] : $now->format('Y-m-d'));
 
         if ($duty->not_attended) {
             $this->refuse('This duty was cancelled.');
@@ -275,6 +281,14 @@ class DutyScheduleService
         }
         if (DutyDay::where('duty_id', (string) $duty->getKey())->where('date', $date)->where('sign_in', true)->exists()) {
             $this->refuse('You have already signed in for this day.');
+        }
+        if ($timed && $windowDay === null) {
+            $start = TimeFormat::at($now->format('Y-m-d'), $duty->day_start_time, $now->getTimezone()->getName());
+            $from = $start->subMinutes($early);
+            $until = $start->addMinutes($late);
+
+            $this->refuse("You can sign in only between {$from->format('g:i a')} and {$until->format('g:i a')}."
+                .($now->gt($until) ? ' Ask your coordinator.' : ''));
         }
         if ($busy = $this->busyWith($duty)) {
             $this->refuse($busy);
@@ -296,15 +310,24 @@ class DutyScheduleService
     }
 
     /**
-     * End the open day of a 24-hour duty, at any time (e.g. at handover
-     * the next morning). The day stays the one signed in on.
+     * End the open day of a 24-hour duty: from a few minutes before the
+     * day's start time the next day (handover). Without a `day_start_time`,
+     * at any time. The day stays the one signed in on.
      *
      * @throws ValidationException
      */
-    private function signOutDay(StaffDutySchedule $duty, array $data): void
+    private function signOutDay(StaffDutySchedule $duty, array $data, bool $enforceWindow): void
     {
         $day = $this->openDay($duty) ?? $this->refuse('Sign in for the day first.');
         $now = CarbonImmutable::now($this->tenants->timezone());
+
+        if ($enforceWindow && filled($duty->day_start_time)) {
+            $end = $duty->dayEndsAt($day->date, $now->getTimezone()->getName());
+            $from = $end->subMinutes(config('homecare.attendance.signout_early_minutes'));
+            if ($now->lt($from)) {
+                $this->refuse("You can sign out from {$from->format('g:i a')} on {$from->format('j M')}. The 24 hours end at {$end->format('g:i a')}.");
+            }
+        }
 
         $day->update([
             'sign_out' => true,
@@ -597,7 +620,7 @@ class DutyScheduleService
 
         return $liveIn
             ? [...$data, ...StaffDutySchedule::liveInFields()]
-            : [...$data, 'live_in' => false];
+            : [...$data, 'live_in' => false, 'day_start_time' => null];
     }
 
     /** Service and fees left blank on the duty come from the patient's registration. */

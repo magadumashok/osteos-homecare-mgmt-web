@@ -58,7 +58,8 @@ const duration = (start, end) => {
  *    (or every other) day up to an end date — one duty per day, each signed
  *    in and out. A shift ending before it starts runs overnight.
  *  - 24 hours: the nurse or caretaker stays with the patient from a start to
- *    an end date, with daily tasks they log each day; no times, driver or sign in.
+ *    an end date, with daily tasks they log each day and a daily start time
+ *    for signing in and out; no shift times or driver.
  * Service and fees default to the patient's registration and can be changed.
  */
 const DutyForm = () => {
@@ -86,6 +87,7 @@ const DutyForm = () => {
             hours: "shift",
             date: today(),
             end_date: today(),
+            day_start_time: "08:00",
             start_time: "08:00",
             end_time: "20:00",
             buffer_time: "00:30",
@@ -154,6 +156,7 @@ const DutyForm = () => {
                     hours: d.live_in ? "24h" : "shift",
                     date: d.date,
                     end_date: d.end_date ?? d.date,
+                    day_start_time: d.live_in ? d.day_start_time ?? "" : "08:00",
                     start_time: d.start_time,
                     end_time: d.end_time,
                     buffer_time: d.buffer_time ?? "00:00",
@@ -224,7 +227,7 @@ const DutyForm = () => {
         setSaving(true);
         try {
             if (liveIn) {
-                const stay = { ...common, live_in: true, date: v.date, end_date: v.end_date, care_tasks: careTasks };
+                const stay = { ...common, live_in: true, date: v.date, end_date: v.end_date, day_start_time: v.day_start_time || null, care_tasks: careTasks };
                 if (isEdit) await duties.reschedule(id, stay);
                 else await duties.create({ ...stay, patient_id: v.patient_id });
                 toast.success(isEdit ? "24-hour duty updated." : "24-hour duty scheduled. Staff and patient are notified on WhatsApp.");
@@ -307,7 +310,7 @@ const DutyForm = () => {
                     </ToggleButtonGroup>
                     <p style={{ fontSize: 13, color: colors.body, margin: "8px 0 12px" }}>
                         {liveIn
-                            ? "Stays with the patient round the clock from the start to the end date. No sign in or out; they send a daily update instead."
+                            ? "Stays with the patient round the clock from the start to the end date. Signs in within 10 minutes of the daily start time, signs out from 10 minutes before that time the next day, and sends a daily update."
                             : "Works set hours each day and signs in and out every day (with location)."}
                     </p>
 
@@ -318,6 +321,11 @@ const DutyForm = () => {
                         <Grid item xs={6} sm={3}>
                             <RHFTextField name="end_date" control={control} label={liveIn ? "End date *" : "Last day *"} type="date" rules={{ required: "Required" }} disabled={isEdit && !liveIn} />
                         </Grid>
+                        {liveIn && (
+                            <Grid item xs={6} sm={3}>
+                                <RHFTextField name="day_start_time" control={control} label="Daily start time *" type="time" rules={isEdit ? undefined : { required: "Required" }} />
+                            </Grid>
+                        )}
                         {!liveIn && (
                             <>
                                 <Grid item xs={6} sm={3}>

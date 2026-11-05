@@ -191,6 +191,7 @@ class CareLogService
             'date' => $date,
             'end_date' => $date,
             'care_tasks' => $duty->care_tasks ?? [],
+            'day_start_time' => $duty->day_start_time,
             'covers_duty_id' => (string) $duty->getKey(),
             ...StaffDutySchedule::liveInFields(),
         ];

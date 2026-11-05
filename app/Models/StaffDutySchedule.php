@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\TimeFormat;
+use Carbon\CarbonImmutable;
+
 /**
  * A duty of a nurse, physiotherapist, doctor or caretaker with a patient.
  * Dates are "Y-m-d" and times "HH:MM" strings; a duty may run past
@@ -24,7 +27,7 @@ class StaffDutySchedule extends TenantModel
     public const SCHEDULE_FIELDS = [
         'staff_id', 'role', 'patient_id', 'driver',
         'date', 'end_date', 'start_time', 'end_time', 'schedule_hour', 'buffer_time',
-        'care_tasks', 'service', 'fees',
+        'care_tasks', 'service', 'fees', 'day_start_time',
     ];
 
     /** Roles whose duties are 24-hour stays when the client does not say (older apps). */
@@ -74,6 +77,32 @@ class StaffDutySchedule extends TenantModel
             'schedule_hour' => '24:00', 'buffer_time' => '00:00',
             'driver' => null,
         ];
+    }
+
+    /**
+     * The day of a 24-hour duty a sign-in at $now belongs to: the one whose
+     * `day_start_time` is at most $earlyMinutes ahead or $lateMinutes behind,
+     * or null when none is. A start time near midnight can fall on the
+     * calendar day before or after $now.
+     */
+    public function signInDayAt(CarbonImmutable $now, int $earlyMinutes, int $lateMinutes): ?string
+    {
+        foreach ([0, -1, 1] as $offset) {
+            $date = $now->addDays($offset)->format('Y-m-d');
+            $start = TimeFormat::at($date, $this->day_start_time, $now->getTimezone()->getName());
+
+            if ($now->between($start->subMinutes($earlyMinutes), $start->addMinutes($lateMinutes))) {
+                return $date;
+            }
+        }
+
+        return null;
+    }
+
+    /** When a day of a 24-hour duty is over: its start time, the next day. */
+    public function dayEndsAt(string $date, string $timezone): CarbonImmutable
+    {
+        return TimeFormat::at($date, $this->day_start_time, $timezone)->addDay();
     }
 
     public function covers(string $date): bool

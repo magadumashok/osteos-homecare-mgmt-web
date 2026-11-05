@@ -38,6 +38,7 @@ class DutyRequest extends FormRequest
             'schedule_hour' => ['nullable'],
             'buffer_time' => ['nullable', Rules::TIME],
             'live_in' => ['nullable', 'boolean'],
+            'day_start_time' => ['nullable', Rules::TIME],
             'care_tasks' => ['nullable', 'array', 'max:40'],
             'care_tasks.*' => ['string', 'max:120'],
             'service' => ['nullable', 'string', 'max:120'],
