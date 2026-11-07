@@ -7,7 +7,6 @@ use App\Models\StaffNote;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Date;
 
 /**
  * Nursing notes (nurses) and staff notes (any role). Each note is text,
@@ -29,6 +28,7 @@ class NoteService
     public function __construct(
         private readonly FileStorageService $files,
         private readonly UserDirectoryService $users,
+        private readonly TenantService $tenants,
     ) {}
 
     /**
@@ -72,7 +72,7 @@ class NoteService
     /** Today's notes of one type for a patient (what the app shows on a visit). */
     public function today(string $kind, string $patientId, string $type): Collection
     {
-        return $this->on($kind, $patientId, Date::today()->format('Y-m-d'), $type);
+        return $this->on($kind, $patientId, $this->tenants->today(), $type);
     }
 
     public function on(string $kind, string $patientId, ?string $date, string $type): Collection
@@ -117,11 +117,14 @@ class NoteService
         ];
     }
 
+    /** The date and time sent, else now at the center (the mobile app sends neither). */
     private function when(array $data): array
     {
+        $now = $this->tenants->now();
+
         return [
-            'date' => $data['date'] ?? Date::today()->format('Y-m-d'),
-            'time' => $data['time'] ?? Date::now()->format('H:i:s'),
+            'date' => $data['date'] ?? $now->format('Y-m-d'),
+            'time' => $data['time'] ?? $now->format('H:i:s'),
         ];
     }
 

@@ -4,13 +4,15 @@ namespace App\Services;
 
 use App\Models\PatientVitalSign;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Date;
 
 class VitalSignService
 {
     public const RANGES = ['all_time', 'today', 'this_week', 'this_month'];
 
-    public function __construct(private readonly PatientService $patients) {}
+    public function __construct(
+        private readonly PatientService $patients,
+        private readonly TenantService $tenants,
+    ) {}
 
     public function findOrFail(string $id): PatientVitalSign
     {
@@ -33,7 +35,7 @@ class VitalSignService
     /** Readings in a range: all_time, today, this_week (last 7 days) or this_month. */
     public function inRange(string $patientId, string $range): Collection
     {
-        $today = Date::today();
+        $today = $this->tenants->now()->startOfDay();
 
         [$from, $to] = match ($range) {
             'today' => [$today, $today],

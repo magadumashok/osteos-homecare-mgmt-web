@@ -23,6 +23,7 @@ class CareLogService
         private readonly PatientService $patients,
         private readonly UserDirectoryService $users,
         private readonly PushNotificationService $push,
+        private readonly TenantService $tenants,
     ) {}
 
     /** Every logged or skipped day of a duty, newest first. */
@@ -76,7 +77,7 @@ class CareLogService
             $date = $duty->date;
         }
 
-        if ($date > now()->format('Y-m-d')) {
+        if ($date > $this->duties->today()) {
             throw ValidationException::withMessages(['date' => 'You can only update today or earlier days.']);
         }
         if ($duty->isSkipped($date)) {
@@ -100,7 +101,7 @@ class CareLogService
                 ], $data['tasks'] ?? [])),
                 'symptoms' => $symptoms,
                 'notes' => trim((string) ($data['notes'] ?? '')),
-                'updated_time' => now()->format('H:i'),
+                'updated_time' => $this->tenants->now()->format('H:i'),
             ],
         );
 
@@ -148,7 +149,7 @@ class CareLogService
             'skip_reason' => $reason,
             'covered_by' => null,
             'cover_duty_id' => null,
-            'updated_time' => now()->format('H:i'),
+            'updated_time' => $this->tenants->now()->format('H:i'),
         ]);
 
         $patient = $this->patients->find($duty->patient_id);

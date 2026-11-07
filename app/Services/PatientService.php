@@ -109,6 +109,7 @@ class PatientService
             ...$this->withServices($patientData),
             'username' => $this->nextUsername($patientData),
             'mobile' => $this->reference->internationalNumber($country, $patientData['mobile'] ?? null),
+            'address_link' => $this->mapsLink($patientData),
             'terms_conditions' => false,
             'consent_form' => false,
             'amount_paid' => false,
@@ -173,8 +174,8 @@ class PatientService
     {
         $record = DischargedPatient::create([
             'patient_id' => $patient->username,
-            'date' => $summary['date'] ?? now()->format('Y-m-d'),
-            'time' => $summary['time'] ?? now()->format('H:i'),
+            'date' => $summary['date'] ?? $this->tenants->today(),
+            'time' => $summary['time'] ?? $this->tenants->now()->format('H:i'),
             'summary' => $summary['summary'] ?? null,
             'discharged_by' => $by->username,
         ]);
@@ -263,6 +264,12 @@ class PatientService
         }
 
         return $data;
+    }
+
+    /** The saved directions link, else one built from the address (older patients have none saved). */
+    public function directionsLink(Patient $patient): ?string
+    {
+        return $patient->address_link ?: $this->mapsLink($patient->only(['address', 'city', 'state', 'country']));
     }
 
     private function mapsLink(array $data): ?string

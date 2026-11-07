@@ -32,7 +32,7 @@ class DutyScheduleController extends Controller
 
         $duties = isset($filters['date'])
             ? $this->duties->onDay($filters['date'])
-            : $this->duties->since($filters['since'] ?? now()->format('Y-m-d'));
+            : $this->duties->since($filters['since'] ?? $this->duties->today());
 
         return $this->response(true, '', 200, $duties);
     }
@@ -40,7 +40,7 @@ class DutyScheduleController extends Controller
     /** The signed-in staff member's duties for a day (defaults to today). */
     public function mine(Request $request): JsonResponse
     {
-        $date = $request->validate(['date' => ['nullable', Rules::DATE]])['date'] ?? now()->format('Y-m-d');
+        $date = $request->validate(['date' => ['nullable', Rules::DATE]])['date'] ?? $this->duties->today();
 
         return $this->response(true, '', 200, $this->duties->forStaffOn($request->user()->username, $date));
     }

@@ -8,6 +8,7 @@ use App\Http\Requests\Schedules\DriverTripRequest;
 use App\Models\DriverSchedule;
 use App\Services\DriverScheduleService;
 use App\Services\PermissionService;
+use App\Services\TenantService;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,12 +20,13 @@ class DriverTripController extends Controller
     public function __construct(
         private readonly DriverScheduleService $trips,
         private readonly PermissionService $permissions,
+        private readonly TenantService $tenants,
     ) {}
 
     /** The signed-in driver's trips for a day (defaults to today). */
     public function mine(Request $request): JsonResponse
     {
-        $date = $request->validate(['date' => ['nullable', Rules::DATE]])['date'] ?? now()->format('Y-m-d');
+        $date = $request->validate(['date' => ['nullable', Rules::DATE]])['date'] ?? $this->tenants->today();
 
         return $this->response(true, '', 200, $this->trips->forDriverOn($request->user()->username, $date));
     }

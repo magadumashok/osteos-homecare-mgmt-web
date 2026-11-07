@@ -8,6 +8,7 @@ use App\Http\Requests\Clinical\MedicationScheduleRequest;
 use App\Http\Requests\Rules;
 use App\Services\MedicationService;
 use App\Services\PatientService;
+use App\Services\TenantService;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class MedicationController extends Controller
     public function __construct(
         private readonly MedicationService $medications,
         private readonly PatientService $patients,
+        private readonly TenantService $tenants,
     ) {}
 
     public function index(string $username): JsonResponse
@@ -82,6 +84,6 @@ class MedicationController extends Controller
 
     private function date(Request $request): string
     {
-        return $request->validate(['date' => ['nullable', Rules::DATE]])['date'] ?? now()->format('Y-m-d');
+        return $request->validate(['date' => ['nullable', Rules::DATE]])['date'] ?? $this->tenants->today();
     }
 }

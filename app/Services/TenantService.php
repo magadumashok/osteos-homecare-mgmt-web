@@ -6,6 +6,7 @@ use App\Models\Homecare;
 use App\Models\Role;
 use App\Support\Permissions;
 use App\Tenancy\TenantSchema;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use MongoDB\Database;
@@ -99,23 +100,41 @@ class TenantService
      */
     public function timezone(): string
     {
-        if ($zone = config('homecare.attendance.timezone')) {
-            return $zone;
+        return config('homecare.attendance.timezone')
+            ?: self::zoneOfCountry($this->homecare()?->country)
+            ?: config('app.timezone');
+    }
+
+    /**
+     * The time at the center. Dates and times saved on records are shown as
+     * they are, so use this rather than now(), which is the server's (UTC).
+     */
+    public function now(): CarbonImmutable
+    {
+        return CarbonImmutable::now($this->timezone());
+    }
+
+    /** Today's date at the center (Y-m-d). */
+    public function today(): string
+    {
+        return $this->now()->format('Y-m-d');
+    }
+
+    /** The (first) timezone of a country code, or of a name older centers stored ("India"). */
+    public static function zoneOfCountry(?string $country): ?string
+    {
+        $country = trim((string) $country);
+        $code = strtoupper(ReferenceDataService::COUNTRY_ALIASES[$country] ?? $country);
+
+        if (strlen($code) !== 2) {
+            return null;
         }
 
-        $country = strtoupper(trim((string) $this->homecare()?->country));
-        if (strlen($country) === 2) {
-            try {
-                $zones = \DateTimeZone::listIdentifiers(\DateTimeZone::PER_COUNTRY, $country);
-                if ($zones) {
-                    return $zones[0];
-                }
-            } catch (\ValueError) {
-                // Not an ISO country code: fall through.
-            }
+        try {
+            return \DateTimeZone::listIdentifiers(\DateTimeZone::PER_COUNTRY, $code)[0] ?? null;
+        } catch (\ValueError) {
+            return null; // Not an ISO country code.
         }
-
-        return config('app.timezone');
     }
 
     /** Run a callback against another homecare's database, then switch back. */

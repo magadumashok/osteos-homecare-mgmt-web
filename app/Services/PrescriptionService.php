@@ -18,13 +18,14 @@ class PrescriptionService
     public function __construct(
         private readonly PatientService $patients,
         private readonly UserDirectoryService $users,
+        private readonly TenantService $tenants,
     ) {}
 
     public function create(string $type, array $data, User $doctor): MedicinePrescription|TestPrescription
     {
         return $this->model($type)::create([
             'patient_id' => $data['patient_id'],
-            'date' => $data['date'] ?? now()->format('Y-m-d'),
+            'date' => $data['date'] ?? $this->tenants->today(),
             'prescription_data' => $data['prescription_data'] ?? [],
             'doctor_id' => $doctor->username,
         ]);

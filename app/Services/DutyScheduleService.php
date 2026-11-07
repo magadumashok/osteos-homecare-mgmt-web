@@ -35,7 +35,7 @@ class DutyScheduleService
     /** Today's date at the center (Y-m-d). */
     public function today(): string
     {
-        return CarbonImmutable::now($this->tenants->timezone())->format('Y-m-d');
+        return $this->tenants->today();
     }
 
     public function findOrFail(string $id): StaffDutySchedule
@@ -648,9 +648,10 @@ class DutyScheduleService
         $homecare = $this->tenants->displayName();
         $driverName = trim((string) ($driver?->name ?? $duty->driver));
         $hasDriver = $driverName !== '';
+        $directions = $this->patients->directionsLink($patient);
 
         // The no-driver templates have no driver placeholder.
-        $toStaff = [$staffName, $patient->patient_name, $duty->date, $time, $patient->address, $patient->address_link, $patientMobile];
+        $toStaff = [$staffName, $patient->patient_name, $duty->date, $time, $patient->address, $directions, $patientMobile];
         if ($hasDriver) {
             $toStaff[] = $driverName;
         }
@@ -667,7 +668,7 @@ class DutyScheduleService
 
         if ($driver) {
             $this->whatsapp->send($this->reference->userNumber($driver), $rescheduled ? 'driver_duty_rescheduled' : 'driver_duty', [
-                $driver->name, $staffName, $duty->date, $time, $patient->address, $patient->address_link, $patientMobile,
+                $driver->name, $staffName, $duty->date, $time, $patient->address, $directions, $patientMobile,
             ]);
         }
 

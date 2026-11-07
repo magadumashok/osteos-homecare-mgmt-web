@@ -29,7 +29,7 @@ class CareLogController extends Controller
     {
         $filters = $request->validate(['date' => ['nullable', Rules::DATE], 'patient_id' => ['nullable', 'string']]);
 
-        return $this->response(true, '', 200, $this->logs->day($filters['date'] ?? now()->format('Y-m-d'), $filters['patient_id'] ?? null));
+        return $this->response(true, '', 200, $this->logs->day($filters['date'] ?? $this->duties->today(), $filters['patient_id'] ?? null));
     }
 
     /** Care tasks offered when scheduling a caretaker. */

@@ -23,7 +23,7 @@ class ReferenceDataService
     private const TTL = 86400;
 
     /** Country names the legacy clients sent instead of codes. */
-    private const COUNTRY_ALIASES = ['India' => 'IN', 'USA' => 'US', 'UAE' => 'AE'];
+    public const COUNTRY_ALIASES = ['India' => 'IN', 'USA' => 'US', 'UAE' => 'AE'];
 
     /** Dialling codes used when the country documents have no `phone_code`. */
     private const DIALLING_CODES = [

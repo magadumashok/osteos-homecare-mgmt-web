@@ -10,9 +10,24 @@ use Illuminate\Support\Facades\Log;
  * `homecare.twilio.templates`; variables are the template's placeholders
  * in order. Messages are skipped (and logged) when Twilio is not
  * configured or the recipient has no number.
+ *
+ * A message that cannot be sent is logged and never fails the caller: with
+ * QUEUE_CONNECTION=sync the job runs inside the request, after the duty or
+ * patient is saved.
  */
 class WhatsAppService
 {
+    /** Stands in for a blank value: Twilio refuses an empty variable (error 21656). */
+    public const BLANK = 'Not provided';
+
+    /** A template variable as WhatsApp accepts it: never empty, on one line. */
+    public static function variable(mixed $value): string
+    {
+        $text = trim((string) preg_replace('/\s+/u', ' ', (string) $value));
+
+        return $text === '' ? self::BLANK : $text;
+    }
+
     /** @param  list<scalar|null>  $variables */
     public function send(?string $to, string $template, array $variables): void
     {
@@ -32,10 +47,14 @@ class WhatsAppService
         // Twilio numbers placeholders from 1.
         $numbered = [];
         foreach (array_values($variables) as $i => $value) {
-            $numbered[(string) ($i + 1)] = (string) $value;
+            $numbered[(string) ($i + 1)] = self::variable($value);
         }
 
-        SendWhatsAppTemplate::dispatch($to, $contentSid, $numbered)->afterCommit();
+        try {
+            SendWhatsAppTemplate::dispatch($to, $contentSid, $numbered)->afterCommit();
+        } catch (\Throwable $e) {
+            Log::warning('[WhatsApp] Template not sent', ['template' => $template, 'error' => $e->getMessage()]);
+        }
     }
 
     public function configured(): bool
