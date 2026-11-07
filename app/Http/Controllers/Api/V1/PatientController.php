@@ -7,6 +7,7 @@ use App\Http\Requests\Patients\PatientRequest;
 use App\Http\Requests\Patients\WalkInRequest;
 use App\Http\Requests\Rules;
 use App\Services\DutyScheduleService;
+use App\Services\PatientAccessService;
 use App\Services\PatientService;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
@@ -16,14 +17,17 @@ class PatientController extends Controller
 {
     use ResponseTrait;
 
-    public function __construct(private readonly PatientService $patients) {}
+    public function __construct(
+        private readonly PatientService $patients,
+        private readonly PatientAccessService $access,
+    ) {}
 
-    /** ?status=all includes discharged patients. */
+    /** The patients this user may see. ?status=all includes discharged patients. */
     public function index(Request $request): JsonResponse
     {
         $patients = $request->query('status') === 'all' ? $this->patients->all() : $this->patients->admitted();
 
-        return $this->response(true, '', 200, $patients);
+        return $this->response(true, '', 200, $this->access->filter($request->user(), $patients, 'username'));
     }
 
     public function store(PatientRequest $request): JsonResponse
@@ -82,9 +86,9 @@ class PatientController extends Controller
         return $this->response(true, 'Consent recorded.', 200, $patient->fresh());
     }
 
-    public function discharged(): JsonResponse
+    public function discharged(Request $request): JsonResponse
     {
-        return $this->response(true, '', 200, $this->patients->discharged());
+        return $this->response(true, '', 200, $this->access->filterPast($request->user(), $this->patients->discharged()));
     }
 
     /** Patients of the signed-in staff member whose discharge date is set. */

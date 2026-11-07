@@ -101,16 +101,16 @@ Route::middleware(['jwt.auth', 'tenant'])->group(function () {
     Route::post('save_walkin_schedule', [PatientController::class, 'registerWalkIn'])->middleware('permission:patients.walkin');
     Route::get('get-admitted-patients', [PatientController::class, 'index'])->middleware('permission:patients.view');
     Route::get('get-all-confirmed-patients', [PatientController::class, 'admitted'])->middleware('permission:patients.view');
-    Route::post('get_patient_data', [PatientController::class, 'show'])->middleware('permission:patients.view');
-    Route::get('get-patient-details/{id}', [PatientController::class, 'show'])->middleware('permission:patients.view');
-    Route::get('get-admitted-patient-invoice/{id}', [PatientController::class, 'show'])->middleware('permission:invoices.view,patients.view');
-    Route::post('update-patient-details', [PatientController::class, 'update'])->middleware('permission:patients.manage');
-    Route::post('update_service_package', [PatientController::class, 'updateServices'])->middleware('permission:schedules.manage,attendance.record');
+    Route::post('get_patient_data', [PatientController::class, 'show'])->middleware('permission:patients.view')->middleware('assigned.patient');
+    Route::get('get-patient-details/{id}', [PatientController::class, 'show'])->middleware('permission:patients.view')->middleware('assigned.patient');
+    Route::get('get-admitted-patient-invoice/{id}', [PatientController::class, 'show'])->middleware('permission:invoices.view,patients.view')->middleware('assigned.patient');
+    Route::post('update-patient-details', [PatientController::class, 'update'])->middleware('permission:patients.manage')->middleware('assigned.patient');
+    Route::post('update_service_package', [PatientController::class, 'updateServices'])->middleware('permission:schedules.manage,attendance.record')->middleware('assigned.patient');
     Route::post('get-patients-from_nurse-duty', [PatientController::class, 'ofStaff'])->middleware('permission:attendance.view');
 
     // Discharge
-    Route::post('add-discharge-details', [PatientController::class, 'scheduleDischarge'])->middleware('permission:discharge.manage');
-    Route::post('discharge-patient-by-nurse', [PatientController::class, 'discharge'])->middleware('permission:discharge.manage');
+    Route::post('add-discharge-details', [PatientController::class, 'scheduleDischarge'])->middleware('permission:discharge.manage')->middleware('assigned.patient');
+    Route::post('discharge-patient-by-nurse', [PatientController::class, 'discharge'])->middleware('permission:discharge.manage')->middleware('assigned.patient');
     Route::get('get-all-discharged-patients', [PatientController::class, 'discharged'])->middleware('permission:discharge.view');
     Route::get('get-confirmed-patients-for-discharge-for-nurse', [PatientController::class, 'awaitingDischarge'])->middleware('permission:discharge.view');
 
@@ -119,10 +119,10 @@ Route::middleware(['jwt.auth', 'tenant'])->group(function () {
     Route::post('save_staff_alternate_duty_schedule_details', [ScheduleController::class, 'storeSeries'])->middleware('permission:schedules.manage');
     Route::post('update-reschedule-duty-details', [ScheduleController::class, 'reschedule'])->middleware('permission:schedules.manage');
     Route::post('save_short_visit_details', [ScheduleController::class, 'storeShortVisit'])->middleware('permission:schedules.manage');
-    Route::post('get_schedule_details', [ScheduleController::class, 'show'])->middleware('permission:schedules.view');
-    Route::post('get_staff_schedule_details', [ScheduleController::class, 'showSlot'])->middleware('permission:schedules.view');
-    Route::post('get_patients_all_schedules', [ScheduleController::class, 'forPatient'])->middleware('permission:schedules.view');
-    Route::post('get_session_details', [ScheduleController::class, 'sessions'])->middleware('permission:schedules.view');
+    Route::post('get_schedule_details', [ScheduleController::class, 'show'])->middleware('permission:schedules.view')->middleware('permission:patients.view_all');
+    Route::post('get_staff_schedule_details', [ScheduleController::class, 'showSlot'])->middleware('permission:schedules.view')->middleware('permission:patients.view_all');
+    Route::post('get_patients_all_schedules', [ScheduleController::class, 'forPatient'])->middleware('permission:schedules.view')->middleware('assigned.patient');
+    Route::post('get_session_details', [ScheduleController::class, 'sessions'])->middleware('permission:schedules.view')->middleware('assigned.patient');
     Route::post('get-all-duty-schedules', [ScheduleController::class, 'since'])->middleware('permission:schedules.view');
     Route::post('scheduled-nurse-list', [ScheduleController::class, 'startingOn'])->middleware('permission:schedules.manage');
     Route::post('get_nurse_schedule', [ScheduleController::class, 'nurseSchedule'])->middleware('permission:schedules.view,attendance.record');
@@ -143,45 +143,45 @@ Route::middleware(['jwt.auth', 'tenant'])->group(function () {
     Route::post('get-driver-attendance/{id}', [DriverController::class, 'history'])->middleware('permission:attendance.view');
 
     // Vital signs
-    Route::post('store_vitalsigns', [ClinicalController::class, 'storeVitals'])->middleware('permission:vitals.record');
-    Route::get('patients/{id}/{time_range}/get-patients-vitalsigns', [ClinicalController::class, 'vitalsInRange'])->middleware('permission:vitals.view');
-    Route::get('patients/{id}/{date}/get-patients-vital-signs-bydate', [ClinicalController::class, 'vitalsOnDate'])->middleware('permission:vitals.view');
-    Route::get('patients/{id}/get-latest-vitalsigns-data', [ClinicalController::class, 'latestVitals'])->middleware('permission:vitals.view');
-    Route::post('patients/update-patients-vitalsigns', [ClinicalController::class, 'updateVitals'])->middleware('permission:vitals.record');
+    Route::post('store_vitalsigns', [ClinicalController::class, 'storeVitals'])->middleware('permission:vitals.record')->middleware('assigned.patient');
+    Route::get('patients/{id}/{time_range}/get-patients-vitalsigns', [ClinicalController::class, 'vitalsInRange'])->middleware('permission:vitals.view')->middleware('assigned.patient');
+    Route::get('patients/{id}/{date}/get-patients-vital-signs-bydate', [ClinicalController::class, 'vitalsOnDate'])->middleware('permission:vitals.view')->middleware('assigned.patient');
+    Route::get('patients/{id}/get-latest-vitalsigns-data', [ClinicalController::class, 'latestVitals'])->middleware('permission:vitals.view')->middleware('assigned.patient');
+    Route::post('patients/update-patients-vitalsigns', [ClinicalController::class, 'updateVitals'])->middleware('permission:vitals.record')->middleware('permission:patients.view_all');
 
     // Medication
-    Route::post('add_medication_schedule', [ClinicalController::class, 'addMedication'])->middleware('permission:medications.manage');
-    Route::get('get-patient-medication-schedule/{id}', [ClinicalController::class, 'medicationSchedule'])->middleware('permission:medications.view');
-    Route::post('get_administer_medication_list', [ClinicalController::class, 'medicationChecklist'])->middleware('permission:medications.view');
-    Route::get('get-administer-medications/{id}/{date}', [ClinicalController::class, 'administeredOn'])->middleware('permission:medications.view');
-    Route::post('update-medicine-details', [ClinicalController::class, 'administer'])->middleware('permission:medications.administer');
-    Route::post('get_all_guardians', [ClinicalController::class, 'guardians'])->middleware('permission:medications.view');
+    Route::post('add_medication_schedule', [ClinicalController::class, 'addMedication'])->middleware('permission:medications.manage')->middleware('assigned.patient');
+    Route::get('get-patient-medication-schedule/{id}', [ClinicalController::class, 'medicationSchedule'])->middleware('permission:medications.view')->middleware('assigned.patient');
+    Route::post('get_administer_medication_list', [ClinicalController::class, 'medicationChecklist'])->middleware('permission:medications.view')->middleware('assigned.patient');
+    Route::get('get-administer-medications/{id}/{date}', [ClinicalController::class, 'administeredOn'])->middleware('permission:medications.view')->middleware('assigned.patient');
+    Route::post('update-medicine-details', [ClinicalController::class, 'administer'])->middleware('permission:medications.administer')->middleware('assigned.patient');
+    Route::post('get_all_guardians', [ClinicalController::class, 'guardians'])->middleware('permission:medications.view')->middleware('assigned.patient');
 
     // Notes
-    Route::post('store_nurse_notes', [ClinicalController::class, 'storeNursingNote'])->middleware('permission:notes.write');
-    Route::post('store_staff_notes', [ClinicalController::class, 'storeStaffNote'])->middleware('permission:notes.write');
-    Route::post('upload-nursing-note-image-by-nurse', [ClinicalController::class, 'storeNursingImage'])->middleware('permission:notes.write');
-    Route::post('upload-image-note-by-nurse', [ClinicalController::class, 'storeStaffImage'])->middleware('permission:notes.write');
-    Route::get('patients/{id}/{type}/get-nurse-notes', [ClinicalController::class, 'nursingNotesToday'])->middleware('permission:notes.view');
-    Route::get('patients/{id}/{type}/get-staff-notes', [ClinicalController::class, 'staffNotesToday'])->middleware('permission:notes.view');
-    Route::get('get-staff-notes-by-date/{id}/{date}/{notes_type}', [ClinicalController::class, 'staffNotesOnDate'])->middleware('permission:notes.view');
+    Route::post('store_nurse_notes', [ClinicalController::class, 'storeNursingNote'])->middleware('permission:notes.write')->middleware('assigned.patient');
+    Route::post('store_staff_notes', [ClinicalController::class, 'storeStaffNote'])->middleware('permission:notes.write')->middleware('assigned.patient');
+    Route::post('upload-nursing-note-image-by-nurse', [ClinicalController::class, 'storeNursingImage'])->middleware('permission:notes.write')->middleware('assigned.patient');
+    Route::post('upload-image-note-by-nurse', [ClinicalController::class, 'storeStaffImage'])->middleware('permission:notes.write')->middleware('assigned.patient');
+    Route::get('patients/{id}/{type}/get-nurse-notes', [ClinicalController::class, 'nursingNotesToday'])->middleware('permission:notes.view')->middleware('assigned.patient');
+    Route::get('patients/{id}/{type}/get-staff-notes', [ClinicalController::class, 'staffNotesToday'])->middleware('permission:notes.view')->middleware('assigned.patient');
+    Route::get('get-staff-notes-by-date/{id}/{date}/{notes_type}', [ClinicalController::class, 'staffNotesOnDate'])->middleware('permission:notes.view')->middleware('assigned.patient');
 
     // Documents
-    Route::get('patients/{id}/get-patients-documents', [PatientController::class, 'show'])->middleware('permission:documents.view');
-    Route::post('upload-patient-document-by-staff', [DocumentController::class, 'uploadDocument'])->middleware('permission:documents.upload');
-    Route::post('upload-patient-document-by-doctor', [DocumentController::class, 'uploadDocument'])->middleware('permission:documents.upload');
-    Route::post('upload-patient-documents-by-staff', [DocumentController::class, 'uploadDocuments'])->middleware('permission:documents.upload');
-    Route::post('upload-emirates-id-by-staff', [DocumentController::class, 'uploadEmiratesId'])->middleware('permission:documents.upload');
-    Route::post('upload-specimen-image-by-staff', [DocumentController::class, 'uploadSpecimen'])->middleware('permission:documents.upload');
-    Route::post('upload-specimen-images-by-staff', [DocumentController::class, 'uploadSpecimens'])->middleware('permission:documents.upload');
-    Route::post('delete-document', [DocumentController::class, 'destroy'])->middleware('permission:documents.delete');
+    Route::get('patients/{id}/get-patients-documents', [PatientController::class, 'show'])->middleware('permission:documents.view')->middleware('assigned.patient');
+    Route::post('upload-patient-document-by-staff', [DocumentController::class, 'uploadDocument'])->middleware('permission:documents.upload')->middleware('assigned.patient');
+    Route::post('upload-patient-document-by-doctor', [DocumentController::class, 'uploadDocument'])->middleware('permission:documents.upload')->middleware('assigned.patient');
+    Route::post('upload-patient-documents-by-staff', [DocumentController::class, 'uploadDocuments'])->middleware('permission:documents.upload')->middleware('assigned.patient');
+    Route::post('upload-emirates-id-by-staff', [DocumentController::class, 'uploadEmiratesId'])->middleware('permission:documents.upload')->middleware('assigned.patient');
+    Route::post('upload-specimen-image-by-staff', [DocumentController::class, 'uploadSpecimen'])->middleware('permission:documents.upload')->middleware('assigned.patient');
+    Route::post('upload-specimen-images-by-staff', [DocumentController::class, 'uploadSpecimens'])->middleware('permission:documents.upload')->middleware('assigned.patient');
+    Route::post('delete-document', [DocumentController::class, 'destroy'])->middleware('permission:documents.delete')->middleware('assigned.patient');
     Route::post('missing-document-notification', [DocumentController::class, 'requestMissing'])->middleware('permission:documents.view');
 
     // Prescriptions
-    Route::post('add-medicine-prescription', [PrescriptionController::class, 'storeMedicine'])->middleware('permission:prescriptions.write');
-    Route::post('add-test-prescription', [PrescriptionController::class, 'storeTest'])->middleware('permission:prescriptions.write');
-    Route::post('get-medicine-prescriptions', [PrescriptionController::class, 'medicines'])->middleware('permission:prescriptions.view');
-    Route::post('get-test-prescriptions', [PrescriptionController::class, 'tests'])->middleware('permission:prescriptions.view');
-    Route::post('get_medicine_details', [PrescriptionController::class, 'medicineDetails'])->middleware('permission:prescriptions.view');
-    Route::post('get_test_details', [PrescriptionController::class, 'testDetails'])->middleware('permission:prescriptions.view');
+    Route::post('add-medicine-prescription', [PrescriptionController::class, 'storeMedicine'])->middleware('permission:prescriptions.write')->middleware('assigned.patient');
+    Route::post('add-test-prescription', [PrescriptionController::class, 'storeTest'])->middleware('permission:prescriptions.write')->middleware('assigned.patient');
+    Route::post('get-medicine-prescriptions', [PrescriptionController::class, 'medicines'])->middleware('permission:prescriptions.view')->middleware('assigned.patient');
+    Route::post('get-test-prescriptions', [PrescriptionController::class, 'tests'])->middleware('permission:prescriptions.view')->middleware('assigned.patient');
+    Route::post('get_medicine_details', [PrescriptionController::class, 'medicineDetails'])->middleware('permission:prescriptions.view')->middleware('permission:patients.view_all');
+    Route::post('get_test_details', [PrescriptionController::class, 'testDetails'])->middleware('permission:prescriptions.view')->middleware('permission:patients.view_all');
 });

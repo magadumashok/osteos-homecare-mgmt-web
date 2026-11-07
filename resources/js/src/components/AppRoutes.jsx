@@ -117,8 +117,8 @@ export default function AppRoutes() {
                         <Route path="/schedules" element={<Allowed permission="schedules.view"><DutyList /></Allowed>} />
                         <Route path="/schedules/new" element={<Allowed permission="schedules.manage"><DutyForm /></Allowed>} />
                         <Route path="/schedules/:id/edit" element={<Allowed permission="schedules.manage"><DutyForm /></Allowed>} />
-                        <Route path="/schedules/:id/care" element={<Allowed permission="schedules.view"><CareDutyLog /></Allowed>} />
-                        <Route path="/care-updates" element={<Allowed permission="schedules.view"><CareUpdates /></Allowed>} />
+                        <Route path="/schedules/:id/care" element={<Allowed any={["schedules.view", "attendance.record"]}><CareDutyLog /></Allowed>} />
+                        <Route path="/care-updates" element={<Allowed any={["patients.view_all", "attendance.record"]}><CareUpdates /></Allowed>} />
                     </Route>
                 </Route>
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAssignedPatient;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -33,6 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Server-side permission check: permission:staff.manage
             'permission' => EnsurePermission::class,
+
+            // Staff reach only the patients assigned to them.
+            'assigned.patient' => EnsureAssignedPatient::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

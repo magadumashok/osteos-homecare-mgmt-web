@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Legacy;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use App\Services\DutyScheduleService;
+use App\Services\PatientAccessService;
 use App\Services\PatientService;
 use App\Services\ReferenceDataService;
 use App\Traits\ResponseTrait;
@@ -52,20 +53,20 @@ class PatientController extends Controller
         return $this->response(true, 'success', 200, '');
     }
 
-    /** GET /api/get-admitted-patients — every patient, discharged or not. */
-    public function index(): JsonResponse
+    /** GET /api/get-admitted-patients — every patient this user may see, discharged or not. */
+    public function index(Request $request, PatientAccessService $access): JsonResponse
     {
-        $patients = $this->patients->all();
+        $patients = $access->filter($request->user(), $this->patients->all(), 'username');
 
         return $patients->isEmpty()
             ? $this->response(true, 'no data found', 200, '')
             : $this->response(true, 'dynamodb data', 200, $patients);
     }
 
-    /** GET /api/get-all-confirmed-patients — patients not yet discharged. */
-    public function admitted(): JsonResponse
+    /** GET /api/get-all-confirmed-patients — patients this user may see, not yet discharged. */
+    public function admitted(Request $request, PatientAccessService $access): JsonResponse
     {
-        return $this->response(true, 'success', 200, $this->patients->admitted());
+        return $this->response(true, 'success', 200, $access->filter($request->user(), $this->patients->admitted(), 'username'));
     }
 
     /**
@@ -122,9 +123,9 @@ class PatientController extends Controller
     }
 
     /** GET /api/get-all-discharged-patients */
-    public function discharged(): JsonResponse
+    public function discharged(Request $request, PatientAccessService $access): JsonResponse
     {
-        return $this->response(true, 'success', 200, $this->patients->discharged());
+        return $this->response(true, 'success', 200, $access->filterPast($request->user(), $this->patients->discharged()));
     }
 
     /** GET /api/get-confirmed-patients-for-discharge-for-nurse */

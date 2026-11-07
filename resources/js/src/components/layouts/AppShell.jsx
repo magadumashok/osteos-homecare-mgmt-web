@@ -56,7 +56,9 @@ export default function AppShell() {
     const [header, setHeader] = useState({});
     useEffect(() => setHeader({}), [path]);
 
-    const visible = (item) => (!item.permission || can(item.permission)) && (!item.any || canAny(item.any));
+    const visible = (item) =>
+        (item.orRole && (user?.roles ?? []).includes(item.orRole)) ||
+        ((!item.permission || can(item.permission)) && (!item.any || canAny(item.any)));
     const groups = navConfig
         .map((g) => ({ ...g, items: g.items.filter(visible) }))
         .filter((g) => g.items.length);

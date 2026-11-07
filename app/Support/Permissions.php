@@ -31,6 +31,7 @@ final class Permissions
         'assessments.manage' => 'Record and update initial assessments, consent and signatures',
 
         'patients.view' => 'View admitted patients and their records',
+        'patients.view_all' => 'See every patient (without this, only patients assigned to them through a duty)',
         'patients.manage' => 'Admit patients and edit patient details',
         'patients.walkin' => 'Register a walk-in patient and log the visit as own duty',
 
@@ -146,7 +147,7 @@ final class Permissions
     public const LEGACY_MAP = [
         'manage_users' => [
             'staff.view', 'staff.manage', 'leads.view', 'assessments.view',
-            'patients.view', 'discharge.view', 'invoices.view', 'attendance.view',
+            'patients.view', 'patients.view_all', 'discharge.view', 'invoices.view', 'attendance.view',
         ],
         'manage_roles' => ['roles.manage'],
         'manage_permissions' => ['roles.manage'],

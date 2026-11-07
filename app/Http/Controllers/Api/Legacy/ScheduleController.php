@@ -6,6 +6,7 @@ use App\Exceptions\ScheduleConflictException;
 use App\Http\Controllers\Controller;
 use App\Models\StaffDutySchedule;
 use App\Services\DutyScheduleService;
+use App\Services\PatientAccessService;
 use App\Services\ScheduleConflictService;
 use App\Services\ShortVisitService;
 use App\Traits\ResponseTrait;
@@ -129,9 +130,9 @@ class ScheduleController extends Controller
     }
 
     /** POST /api/get-all-duty-schedules {date} — duties from that date on. */
-    public function since(Request $request): JsonResponse
+    public function since(Request $request, PatientAccessService $access): JsonResponse
     {
-        return $this->response(true, 'success', 200, $this->duties->since((string) $request->input('date')));
+        return $this->response(true, 'success', 200, $access->filter($request->user(), $this->duties->since((string) $request->input('date'))));
     }
 
     /** POST /api/scheduled-nurse-list {date} — duties starting that day, for booking drivers. */

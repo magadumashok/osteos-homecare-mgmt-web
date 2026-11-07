@@ -8,6 +8,7 @@ use App\Models\CareLog;
 use App\Models\StaffDutySchedule;
 use App\Services\CareLogService;
 use App\Services\DutyScheduleService;
+use App\Services\PatientAccessService;
 use App\Services\PermissionService;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
@@ -22,14 +23,19 @@ class CareLogController extends Controller
         private readonly CareLogService $logs,
         private readonly DutyScheduleService $duties,
         private readonly PermissionService $permissions,
+        private readonly PatientAccessService $access,
     ) {}
 
-    /** ?date=Y-m-d (default today) [&patient_id=]: every 24-hour duty running that day with its update. */
+    /**
+     * ?date=Y-m-d (default today) [&patient_id=]: the day's duties with their
+     * update. Admins get everyone's; caretakers only their own.
+     */
     public function index(Request $request): JsonResponse
     {
         $filters = $request->validate(['date' => ['nullable', Rules::DATE], 'patient_id' => ['nullable', 'string']]);
+        $day = $this->logs->day($filters['date'] ?? $this->duties->today(), $filters['patient_id'] ?? null);
 
-        return $this->response(true, '', 200, $this->logs->day($filters['date'] ?? $this->duties->today(), $filters['patient_id'] ?? null));
+        return $this->response(true, '', 200, $this->access->ownDuties($request->user(), $day));
     }
 
     /** Care tasks offered when scheduling a caretaker. */
@@ -98,7 +104,8 @@ class CareLogController extends Controller
         $user = $request->user();
 
         abort_unless(
-            $duty->staff_id === $user->username || $this->permissions->allows($user, $permission),
+            $duty->staff_id === $user->username
+                || ($this->permissions->allows($user, $permission) && $this->access->canSee($user, $duty->patient_id)),
             403,
             'This duty is assigned to someone else.',
         );

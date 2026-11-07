@@ -14,6 +14,7 @@ import VolunteerActivismOutlined from "@mui/icons-material/VolunteerActivismOutl
  *   group        — collapsible section label (omit for a top-level link)
  *   permission   — hide unless the user holds it (the route checks it too)
  *   any          — hide unless the user holds at least one of these
+ *   orRole       — also show to this role, whatever its permissions
  *   exact        — highlight only on an exact path match
  */
 const navConfig = [
@@ -40,7 +41,7 @@ const navConfig = [
         group: "Scheduling",
         items: [
             { to: "/schedules", label: "Duty schedules", Icon: EventNoteOutlined, permission: "schedules.view" },
-            { to: "/care-updates", label: "Caretaker updates", Icon: VolunteerActivismOutlined, permission: "schedules.view" },
+            { to: "/care-updates", label: "Caretaker updates", Icon: VolunteerActivismOutlined, permission: "patients.view_all", orRole: "caretaker" },
         ],
     },
     {

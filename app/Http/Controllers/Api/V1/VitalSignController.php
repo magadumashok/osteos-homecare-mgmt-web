@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Clinical\VitalSignRequest;
 use App\Http\Requests\Rules;
+use App\Services\PatientAccessService;
 use App\Services\PatientService;
 use App\Services\VitalSignService;
 use App\Traits\ResponseTrait;
@@ -19,6 +20,7 @@ class VitalSignController extends Controller
     public function __construct(
         private readonly VitalSignService $vitals,
         private readonly PatientService $patients,
+        private readonly PatientAccessService $access,
     ) {}
 
     /** ?date=Y-m-d for one day, else ?range=all_time|today|this_week|this_month (default all_time). */
@@ -58,7 +60,11 @@ class VitalSignController extends Controller
 
     public function update(VitalSignRequest $request, string $id): JsonResponse
     {
-        $reading = $this->vitals->update($this->vitals->findOrFail($id), $request->validated());
+        $reading = $this->vitals->findOrFail($id);
+
+        abort_unless($this->access->canSee($request->user(), $reading->patient_id), 403, 'This patient is not assigned to you.');
+
+        $reading = $this->vitals->update($reading, $request->validated());
 
         return $this->response(true, 'Vital signs updated.', 200, $reading);
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rules;
+use App\Services\PatientAccessService;
 use App\Services\PatientService;
 use App\Services\PrescriptionService;
 use App\Traits\ResponseTrait;
@@ -18,6 +19,7 @@ class PrescriptionController extends Controller
     public function __construct(
         private readonly PrescriptionService $prescriptions,
         private readonly PatientService $patients,
+        private readonly PatientAccessService $access,
     ) {}
 
     public function index(string $username, string $type): JsonResponse
@@ -43,8 +45,12 @@ class PrescriptionController extends Controller
         return $this->response(true, 'Prescription saved.', 201, $prescription);
     }
 
-    public function show(string $type, string $id): JsonResponse
+    public function show(Request $request, string $type, string $id): JsonResponse
     {
-        return $this->response(true, '', 200, $this->prescriptions->details($type, $id));
+        $prescription = $this->prescriptions->details($type, $id);
+
+        abort_unless($this->access->canSee($request->user(), $prescription->patient_id), 403, 'This patient is not assigned to you.');
+
+        return $this->response(true, '', 200, $prescription);
     }
 }

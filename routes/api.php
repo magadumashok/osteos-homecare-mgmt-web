@@ -91,7 +91,8 @@ Route::prefix('v1')->group(function () {
         Route::get('patients/discharged', [PatientController::class, 'discharged'])->middleware('permission:discharge.view');
         Route::get('patients/awaiting-discharge', [PatientController::class, 'awaitingDischarge'])->middleware('permission:discharge.view');
 
-        Route::prefix('patients/{username}')->group(function () {
+        // Everything about one patient: staff only reach patients assigned to them.
+        Route::prefix('patients/{username}')->middleware('assigned.patient')->group(function () {
             Route::get('/', [PatientController::class, 'show'])->middleware('permission:patients.view,invoices.view');
             Route::put('/', [PatientController::class, 'update'])->middleware('permission:patients.manage');
             Route::put('services', [PatientController::class, 'updateServices'])->middleware('permission:schedules.manage,attendance.record');
@@ -142,7 +143,8 @@ Route::prefix('v1')->group(function () {
         Route::post('short-visits', [ShortVisitController::class, 'store'])->middleware('permission:schedules.manage');
 
         // 24-hour caretaker duties: daily care log, skipped days and covers.
-        Route::get('care-logs', [CareLogController::class, 'index'])->middleware('permission:schedules.view');
+        // A day's care updates: everyone's for admins, staff only get their own.
+        Route::get('care-logs', [CareLogController::class, 'index'])->middleware('permission:patients.view_all,attendance.record');
         Route::get('care-logs/tasks', [CareLogController::class, 'tasks'])->middleware('permission:schedules.view,attendance.record');
         Route::get('duties/{id}/care-logs', [CareLogController::class, 'forDuty'])->middleware('permission:schedules.view,attendance.record');
         Route::put('duties/{id}/care-logs/{date}', [CareLogController::class, 'save'])->middleware('permission:schedules.manage,attendance.record');

@@ -8,6 +8,7 @@ use App\Http\Requests\Schedules\DutyRequest;
 use App\Http\Requests\Schedules\DutySeriesRequest;
 use App\Models\StaffDutySchedule;
 use App\Services\DutyScheduleService;
+use App\Services\PatientAccessService;
 use App\Services\PermissionService;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
@@ -20,9 +21,11 @@ class DutyScheduleController extends Controller
     public function __construct(
         private readonly DutyScheduleService $duties,
         private readonly PermissionService $permissions,
+        private readonly PatientAccessService $access,
     ) {}
 
     /**
+     * Duties of the patients this user may see:
      * ?date=Y-m-d   duties starting that day, plus 24-hour duties running through it (with staff and patient names)
      * ?since=Y-m-d  duties starting that day or later, newest first
      */
@@ -34,7 +37,7 @@ class DutyScheduleController extends Controller
             ? $this->duties->onDay($filters['date'])
             : $this->duties->since($filters['since'] ?? $this->duties->today());
 
-        return $this->response(true, '', 200, $duties);
+        return $this->response(true, '', 200, $this->access->filter($request->user(), $duties));
     }
 
     /** The signed-in staff member's duties for a day (defaults to today). */
@@ -62,9 +65,16 @@ class DutyScheduleController extends Controller
         return $this->response(true, 'Duties scheduled.', 201, $duties);
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
         $duty = $this->duties->findOrFail($id);
+        $user = $request->user();
+
+        abort_unless(
+            $duty->staff_id === $user->username || $this->access->canSee($user, $duty->patient_id),
+            403,
+            'This patient is not assigned to you.',
+        );
 
         return $this->response(true, '', 200, $this->duties->withDayAttendance(collect([$duty]), $this->duties->today())->first());
     }
