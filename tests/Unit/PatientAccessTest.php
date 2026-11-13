@@ -134,6 +134,26 @@ class PatientAccessTest extends TestCase
         $this->assertCount(2, $this->access(['patients.view_all'], [])->filter($this->user(), $rows));
     }
 
+    public function test_the_registered_list_shows_everyone_but_hides_details_of_others(): void
+    {
+        $rows = collect([
+            ['username' => 'p1', 'patient_name' => 'Asha', 'mobile' => '111', 'address' => 'A'],
+            ['username' => 'p2', 'patient_name' => 'Ravi', 'mobile' => '222', 'address' => 'B', 'gender' => 'male'],
+        ]);
+
+        $list = $this->access()->directory($this->user(), $rows)->all();
+
+        $this->assertSame(['username' => 'p1', 'patient_name' => 'Asha', 'mobile' => '111', 'address' => 'A', 'assigned' => true], $list[0]);
+        $this->assertSame(['username' => 'p2', 'patient_name' => 'Ravi', 'gender' => 'male', 'assigned' => false], $list[1]);
+    }
+
+    public function test_admins_see_full_details_in_the_registered_list(): void
+    {
+        $rows = collect([['username' => 'p2', 'mobile' => '222']]);
+
+        $this->assertSame([['username' => 'p2', 'mobile' => '222', 'assigned' => true]], $this->access(['patients.view_all'], [])->directory($this->user(), $rows)->all());
+    }
+
     /** New routes under patients/{username} must not lose the check by accident. */
     public function test_every_route_about_one_patient_checks_the_assignment(): void
     {

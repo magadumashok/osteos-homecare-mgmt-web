@@ -52,6 +52,27 @@ class PatientAccessService
         return $this->seesAll($user) ? $rows : $this->only($rows, $this->assignedIds($user), $key);
     }
 
+    /** What the "All registered" list shows of a patient the user is not assigned to. */
+    public const DIRECTORY_FIELDS = ['_id', 'username', 'patient_name', 'gender', 'age', 'service', 'service_package', 'date'];
+
+    /**
+     * Every registered patient, for staff to look up. Unassigned patients
+     * show only DIRECTORY_FIELDS (no contact, address or clinical details),
+     * and `assigned` says which ones the user may open.
+     */
+    public function directory(User $user, Collection $patients): Collection
+    {
+        $all = $this->seesAll($user);
+        $ids = $all ? [] : $this->assignedIds($user);
+
+        return $patients->map(function ($patient) use ($all, $ids) {
+            $row = $patient instanceof \Illuminate\Contracts\Support\Arrayable ? $patient->toArray() : (array) $patient;
+            $assigned = $all || in_array($row['username'] ?? null, $ids, true);
+
+            return [...($assigned ? $row : array_intersect_key($row, array_flip(self::DIRECTORY_FIELDS))), 'assigned' => $assigned];
+        })->values();
+    }
+
     /** Every duty for those who see all patients; for anyone else only their own, not a colleague's on the same patient. */
     public function ownDuties(User $user, Collection $duties): Collection
     {

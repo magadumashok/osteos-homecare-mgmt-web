@@ -82,6 +82,8 @@ const p = (username) => `patients/${enc(username)}`;
 
 export const patients = {
     list: (status) => get("patients", status ? { status } : undefined),
+    // Every admitted patient; unassigned ones have basic details only and assigned: false.
+    registered: () => get("patients", { scope: "registered" }),
     show: (username) => get(p(username)),
     create: (body) => post("patients", body),
     update: (username, body) => put(p(username), body),

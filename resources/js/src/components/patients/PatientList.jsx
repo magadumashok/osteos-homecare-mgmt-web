@@ -20,7 +20,16 @@ const PatientList = () => {
     const navigate = useNavigate();
     const { can } = usePermission();
     const [status, setStatus] = useState("admitted");
-    const { data: rows, loading } = useAsync(() => patientsApi.list(status === "all" ? "all" : undefined), [status], []);
+    // Nurses and caretakers see their assigned patients; "All registered" lists
+    // everyone, with basic details only for patients not assigned to them.
+    const seesAll = can("patients.view_all");
+    const [registered, setRegistered] = useState(false);
+    const { data: rows, loading } = useAsync(
+        () => (registered ? patientsApi.registered() : patientsApi.list(status === "all" ? "all" : undefined)),
+        [status, registered],
+        [],
+    );
+    const locked = (p) => p.assigned === false;
 
     const columns = useMemo(() => [
         {
@@ -36,7 +45,7 @@ const PatientList = () => {
             cell: ({ row }) => [row.original.age, row.original.gender].filter(Boolean).join(" · ") || "—",
         },
         { header: "Package", accessorKey: "service_package", cell: ({ row }) => row.original.service_package || "—" },
-        { header: "Status", id: "status", cell: ({ row }) => <ConsentBadges patient={row.original} /> },
+        { header: "Status", id: "status", cell: ({ row }) => (locked(row.original) ? "—" : <ConsentBadges patient={row.original} />) },
         {
             header: "Discharge",
             id: "discharge",
@@ -51,6 +60,7 @@ const PatientList = () => {
             id: "actions",
             cell: ({ row }) => {
                 const u = row.original.username;
+                if (locked(row.original)) return <Badge tone="muted">Not assigned to you</Badge>;
                 return (
                     <ActionCell>
                         <TableBtn onClick={() => navigate(`/patients/${u}`)}>View details</TableBtn>
@@ -69,25 +79,38 @@ const PatientList = () => {
                 title="Patients"
                 actions={
                     <>
-                        <Button variant="secondary" onClick={() => setStatus(status === "all" ? "admitted" : "all")}>
-                            {status === "all" ? "Show admitted only" : "Include discharged"}
-                        </Button>
+                        {!seesAll && (
+                            <Button variant="secondary" onClick={() => setRegistered(!registered)}>
+                                {registered ? "My patients" : "All registered patients"}
+                            </Button>
+                        )}
+                        {!registered && (
+                            <Button variant="secondary" onClick={() => setStatus(status === "all" ? "admitted" : "all")}>
+                                {status === "all" ? "Show admitted only" : "Include discharged"}
+                            </Button>
+                        )}
                         {can("patients.manage") && <Button onClick={() => navigate("/patients/new")}>+ Register patient</Button>}
                     </>
                 }
             />
             <StatStrip items={[
-                { label: status === "all" ? "All patients" : "Admitted", value: rows.length },
-                { label: "Consent pending", value: rows.filter((p) => !isYes(p.consent_form)).length },
-                { label: "Unpaid", value: rows.filter((p) => !isYes(p.amount_paid)).length },
-                { label: "Discharge planned", value: rows.filter((p) => p.discharge?.date && !isYes(p.discharged)).length },
+                { label: registered ? "All registered" : status === "all" ? "All patients" : seesAll ? "Admitted" : "Assigned to you", value: rows.length },
+                ...(registered ? [{ label: "Assigned to you", value: rows.filter((p) => !locked(p)).length }] : [
+                    { label: "Consent pending", value: rows.filter((p) => !isYes(p.consent_form)).length },
+                    { label: "Unpaid", value: rows.filter((p) => !isYes(p.amount_paid)).length },
+                    { label: "Discharge planned", value: rows.filter((p) => p.discharge?.date && !isYes(p.discharged)).length },
+                ]),
             ]} />
             <Card>
                 <DataTable
                     data={rows}
                     columns={columns}
                     searchPlaceholder="Search by name, patient ID or mobile…"
-                    emptyMessage={loading ? "Loading…" : "No patients yet. Admit one from Assessments or register one directly."}
+                    emptyMessage={
+                        loading ? "Loading…"
+                            : !seesAll && !registered ? "No patients are assigned to you right now. Use \"All registered patients\" to see everyone."
+                            : "No patients yet. Admit one from Assessments or register one directly."
+                    }
                 />
             </Card>
         </>

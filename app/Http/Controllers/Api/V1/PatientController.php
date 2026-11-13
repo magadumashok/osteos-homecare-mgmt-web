@@ -22,9 +22,17 @@ class PatientController extends Controller
         private readonly PatientAccessService $access,
     ) {}
 
-    /** The patients this user may see. ?status=all includes discharged patients. */
+    /**
+     * The patients this user may see. ?status=all includes discharged patients.
+     * ?scope=registered lists every admitted patient, with only basic details
+     * of those the user is not assigned to (they still cannot open them).
+     */
     public function index(Request $request): JsonResponse
     {
+        if ($request->query('scope') === 'registered') {
+            return $this->response(true, '', 200, $this->access->directory($request->user(), $this->patients->admitted()));
+        }
+
         $patients = $request->query('status') === 'all' ? $this->patients->all() : $this->patients->admitted();
 
         return $this->response(true, '', 200, $this->access->filter($request->user(), $patients, 'username'));
