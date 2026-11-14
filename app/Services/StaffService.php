@@ -6,6 +6,7 @@ use App\Mail\StaffMessage;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -28,7 +29,32 @@ class StaffService
         private readonly UserDirectoryService $users,
         private readonly AuthService $auth,
         private readonly ReferenceDataService $reference,
+        private readonly FileStorageService $files,
     ) {}
+
+    /**
+     * Save uploaded staff documents (profile photo, Aadhaar card, police
+     * verification; see User::STAFF_DOCUMENTS). A new upload replaces the old.
+     *
+     * @param  array<string, UploadedFile>  $uploads
+     */
+    public function saveDocuments(User $user, array $uploads): User
+    {
+        $changes = [];
+        foreach (array_intersect_key($uploads, User::STAFF_DOCUMENTS) as $field => $file) {
+            $changes[$field] = $this->files->storeUpload($file, "users/{$user->username}/documents");
+        }
+        $user->update($changes);
+
+        return $user;
+    }
+
+    public function removeDocument(User $user, string $field): User
+    {
+        $user->update([$field => null]);
+
+        return $user;
+    }
 
     public function all(): Collection
     {

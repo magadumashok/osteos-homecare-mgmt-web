@@ -168,6 +168,10 @@ Route::prefix('v1')->group(function () {
         Route::get('staff/{id}', [StaffController::class, 'show'])->middleware('permission:staff.view');
         Route::put('staff/{id}', [StaffController::class, 'update'])->middleware('permission:staff.manage');
         Route::delete('staff/{id}', [StaffController::class, 'destroy'])->middleware('permission:staff.manage');
+        // Profile photo, Aadhaar card, police verification.
+        Route::post('staff/{id}/documents', [StaffController::class, 'uploadDocuments'])->middleware('permission:staff.manage');
+        Route::delete('staff/{id}/documents/{field}', [StaffController::class, 'removeDocument'])
+            ->whereIn('field', array_keys(\App\Models\User::STAFF_DOCUMENTS))->middleware('permission:staff.manage');
         Route::put('staff/{id}/roles', [StaffController::class, 'updateRoles'])->middleware('permission:roles.manage');
         Route::get('staff/{id}/patients', [StaffController::class, 'patients'])->middleware('permission:attendance.view');
         Route::get('staff/{id}/salary', [SalaryController::class, 'forStaff'])->middleware('permission:attendance.view');

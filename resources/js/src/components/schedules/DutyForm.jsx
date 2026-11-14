@@ -17,7 +17,12 @@ const BUFFERS = ["00:00", "00:15", "00:30", "00:45", "01:00", "01:30", "02:00"].
     value: v,
     label: v === "00:00" ? "None" : v.replace(/^0/, "").replace(":", "h ") + "m",
 }));
-const STAYS = [1, 3, 6];
+// Quick end dates: the period counts the start day (7 days from the 1st ends on the 7th).
+const STAYS = [
+    { value: "7d", label: "7 days" },
+    { value: "15d", label: "15 days" },
+    { value: "1m", label: "1 month" },
+];
 const SHIFT_HOURS = [5, 8, 10, 12];
 const MAX_SHIFTS = 200; // about six months of daily shifts (the server's limit)
 
@@ -40,6 +45,12 @@ const monthsLater = (date, n) => {
     // Same day n months on (clamped to that month's length), less one day.
     const monthLength = new Date(y, m - 1 + n + 1, 0).getDate();
     return iso(new Date(y, m - 1 + n, Math.min(d, monthLength) - 1));
+};
+
+/** The last day of a STAYS period ("7d", "15d", "1m") starting on `date`. */
+const periodEnd = (date, period) => {
+    const n = parseInt(period, 10);
+    return period.endsWith("m") ? monthsLater(date, n) : addDays(date, n - 1);
 };
 
 /** "HH:MM" length of a shift, allowing it to run past midnight. */
@@ -340,14 +351,14 @@ const DutyForm = () => {
 
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
                         {(!isEdit || liveIn) &&
-                            STAYS.map((n) => (
+                            STAYS.map((p) => (
                                 <Chip
-                                    key={`m${n}`}
+                                    key={p.value}
                                     size="small"
-                                    label={`${n} month${n > 1 ? "s" : ""}`}
-                                    variant={endDate === monthsLater(date, n) ? "filled" : "outlined"}
-                                    color={endDate === monthsLater(date, n) ? "primary" : "default"}
-                                    onClick={() => setValue("end_date", monthsLater(date, n))}
+                                    label={p.label}
+                                    variant={endDate === periodEnd(date, p.value) ? "filled" : "outlined"}
+                                    color={endDate === periodEnd(date, p.value) ? "primary" : "default"}
+                                    onClick={() => setValue("end_date", periodEnd(date, p.value))}
                                 />
                             ))}
                         {!liveIn &&

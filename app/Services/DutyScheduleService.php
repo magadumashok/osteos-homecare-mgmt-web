@@ -431,29 +431,44 @@ class DutyScheduleService
 
     /**
      * Why the staff member cannot start this duty now: still signed in to
-     * another visit, or on a 24-hour duty with another patient today.
+     * another visit that is still running, or on a 24-hour duty with
+     * another patient today. A visit whose time is over but was never
+     * signed out (forgotten) does not block: it stays without a sign-out
+     * for the coordinator to see, and can still be signed out from its day.
      */
     private function busyWith(StaffDutySchedule $duty): ?string
     {
-        $today = CarbonImmutable::now($this->tenants->timezone())->format('Y-m-d');
+        $timezone = $this->tenants->timezone();
+        $now = CarbonImmutable::now($timezone);
+        $today = $now->format('Y-m-d');
 
         $open = StaffDutySchedule::where('staff_id', $duty->staff_id)
             ->where('_id', '!=', $duty->getKey())
             ->where('sign_in', true)
             ->where('sign_out', '!=', true)
             ->where('not_attended', '!=', true)
-            ->first();
+            ->get()
+            ->first(fn (StaffDutySchedule $d) => ! $d->live_in && $now->lt($this->interval($d)[1]));
         if ($open) {
             $name = $this->patients->find($open->patient_id)?->patient_name ?? $open->patient_id;
+            $end = $this->interval($open)[1];
 
-            return "You are still signed in to your duty with {$name}. Sign out of it first.";
+            return "You are still signed in to your duty with {$name} until {$end->format('g:i a')}. Sign out of it first.";
         }
 
         $openDay = DutyDay::where('staff_id', $duty->staff_id)
             ->where('duty_id', '!=', (string) $duty->getKey())
             ->where('sign_in', true)
             ->where('sign_out', '!=', true)
-            ->first();
+            ->get()
+            ->first(function (DutyDay $day) use ($now, $timezone) {
+                $stay = StaffDutySchedule::find($day->duty_id);
+                $end = $stay && filled($stay->day_start_time)
+                    ? $stay->dayEndsAt($day->date, $timezone)
+                    : CarbonImmutable::parse($day->date, $timezone)->addDay()->endOfDay();
+
+                return $now->lt($end);
+            });
         if ($openDay) {
             $name = $this->patients->find($openDay->patient_id)?->patient_name ?? $openDay->patient_id;
 

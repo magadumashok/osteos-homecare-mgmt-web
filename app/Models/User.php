@@ -36,17 +36,30 @@ class User extends Authenticatable implements JWTSubject
         'country', 'region', 'city', 'address',
         'address',  'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
-        'daily_salary',
+        'daily_salary', 'aadhaar_card', 'police_verification',
     ];
+
+    /** Staff documents an admin uploads: [field => label]. */
+    public const STAFF_DOCUMENTS = [
+        'profile_image' => 'Profile photo',
+        'aadhaar_card' => 'Aadhaar card',
+        'police_verification' => 'Police verification',
+    ];
+
+    /** Shown only on the staff record (StaffController::show), never in lists. */
+    public const PRIVATE_FIELDS = ['daily_salary', 'aadhaar_card', 'police_verification'];
 
     /**
      * `daily_salary` is pay per day worked. Hidden because users are listed
      * to every colleague (directory); shown only to admins and the user.
+     * The identity documents are hidden the same way.
      */
     protected $hidden = [
         'password',
         'remember_token',
         'daily_salary',
+        'aadhaar_card',
+        'police_verification',
     ];
 
     protected function casts(): array

@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rules;
 use App\Http\Requests\Staff\StaffRequest;
+use App\Models\User;
 use App\Services\PatientService;
 use App\Services\StaffService;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class StaffController extends Controller
 {
@@ -52,7 +55,32 @@ class StaffController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return $this->response(true, '', 200, $this->staff->findOrFail($id)->makeVisible('daily_salary'));
+        return $this->response(true, '', 200, $this->staff->findOrFail($id)->makeVisible(User::PRIVATE_FIELDS));
+    }
+
+    /** Upload a profile photo (image), Aadhaar card and police verification (image or PDF). */
+    public function uploadDocuments(Request $request, string $id): JsonResponse
+    {
+        $document = ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', Rules::upload()];
+        $uploads = array_filter($request->validate([
+            'profile_image' => ['nullable', 'image', Rules::upload()],
+            'aadhaar_card' => $document,
+            'police_verification' => $document,
+        ]));
+        if (! $uploads) {
+            throw ValidationException::withMessages(['file' => 'Choose a file to upload.']);
+        }
+
+        $user = $this->staff->saveDocuments($this->staff->findOrFail($id), $uploads);
+
+        return $this->response(true, 'Documents uploaded.', 200, $user->makeVisible(User::PRIVATE_FIELDS));
+    }
+
+    public function removeDocument(string $id, string $field): JsonResponse
+    {
+        $user = $this->staff->removeDocument($this->staff->findOrFail($id), $field);
+
+        return $this->response(true, 'Document removed.', 200, $user->makeVisible(User::PRIVATE_FIELDS));
     }
 
     public function update(StaffRequest $request, string $id): JsonResponse

@@ -43,6 +43,9 @@ export const staff = {
     remove: (id) => del(`staff/${enc(id)}`),
     setRoles: (id, roles) => put(`staff/${enc(id)}/roles`, { roles }),
     patients: (id) => get(`staff/${enc(id)}/patients`),
+    // files: { profile_image?, aadhaar_card?, police_verification? } (File objects)
+    uploadDocuments: (id, files) => post(`staff/${enc(id)}/documents`, toFormData(files)),
+    removeDocument: (id, field) => del(`staff/${enc(id)}/documents/${enc(field)}`),
 };
 
 // Days worked x day rate; params { from, to } (YYYY-MM-DD).

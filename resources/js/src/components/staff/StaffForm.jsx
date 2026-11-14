@@ -20,6 +20,63 @@ const EMPTY_ADDRESS = { country: "", region: "", city: "", address: "" };
 // "050 123-4567" → "0501234567" (the API takes digits only).
 const digits = (v) => String(v ?? "").replace(/[\s-]/g, "");
 
+// Uploaded after the staff member is saved (POST staff/{id}/documents).
+const DOCUMENTS = [
+    { field: "profile_image", label: "Profile photo", accept: "image/*", hint: "JPG or PNG" },
+    { field: "aadhaar_card", label: "Aadhaar card", accept: "image/*,application/pdf", hint: "Image or PDF" },
+    { field: "police_verification", label: "Police verification", accept: "image/*,application/pdf", hint: "Image or PDF" },
+];
+const isPdf = (url) => /\.pdf($|\?)/i.test(url ?? "");
+
+/** One document: what is saved now, the file chosen to replace it, and remove. */
+const DocumentPicker = ({ doc, saved, chosen, onChoose, onRemove, disabled }) => {
+    const preview = useMemo(() => (chosen && chosen.type.startsWith("image/") ? URL.createObjectURL(chosen) : null), [chosen]);
+    useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview]);
+    const shown = preview ?? (saved && !isPdf(saved) ? saved : null);
+
+    return (
+        <div style={{ border: "1px solid #e3e8ee", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8, height: "100%" }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.label}</div>
+            <div style={{ height: 120, borderRadius: 8, background: "#f4f6f8", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                {shown ? (
+                    <img src={shown} alt={doc.label} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                ) : (
+                    <span style={{ fontSize: 12, color: "#8a9baa" }}>
+                        {chosen ? chosen.name : saved ? "PDF document" : "Not uploaded"}
+                    </span>
+                )}
+            </div>
+            {chosen && <div style={{ fontSize: 12, color: "#8a9baa", wordBreak: "break-all" }}>New: {chosen.name}</div>}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <label style={{ fontSize: 13, color: "#1a7f8e", cursor: disabled ? "default" : "pointer", fontWeight: 600 }}>
+                    {saved || chosen ? "Replace" : "Choose file"}
+                    <input
+                        type="file"
+                        accept={doc.accept}
+                        hidden
+                        disabled={disabled}
+                        onChange={(e) => {
+                            onChoose(e.target.files?.[0] ?? null);
+                            e.target.value = "";
+                        }}
+                    />
+                </label>
+                {chosen && (
+                    <button type="button" onClick={() => onChoose(null)} disabled={disabled} style={linkBtn}>Undo</button>
+                )}
+                {saved && !chosen && (
+                    <>
+                        <a href={saved} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>View</a>
+                        <button type="button" onClick={onRemove} disabled={disabled} style={{ ...linkBtn, color: "#c0392b" }}>Remove</button>
+                    </>
+                )}
+            </div>
+            <div style={{ fontSize: 11, color: "#8a9baa" }}>{doc.hint}</div>
+        </div>
+    );
+};
+const linkBtn = { background: "none", border: 0, padding: 0, fontSize: 13, color: "#1a7f8e", cursor: "pointer" };
+
 const StaffForm = () => {
     const { id } = useParams();
     const isEdit = Boolean(id);
@@ -31,6 +88,18 @@ const StaffForm = () => {
     const [roleOptions, setRoleOptions] = useState([]);
     const [sameAddress, setSameAddress] = useState(false);
     const [member, setMember] = useState(null);
+    const [files, setFiles] = useState({}); // field → File chosen, uploaded on save
+    const chooseFile = (field) => (file) => setFiles((f) => ({ ...f, [field]: file }));
+
+    const removeDocument = async (field, label) => {
+        if (!window.confirm(`Remove the ${label.toLowerCase()}?`)) return;
+        try {
+            setMember(await staff.removeDocument(id, field));
+            toast.success(`${label} removed.`);
+        } catch (e) {
+            toast.error(errorMessage(e));
+        }
+    };
 
     const { control, handleSubmit, reset, setValue, setError, getValues } = useForm({
         defaultValues: {
@@ -94,20 +163,36 @@ const StaffForm = () => {
             // permanent_address: compact(sameAddress ? values.temporary_address : values.permanent_address),
         };
 
+        const uploads = Object.fromEntries(Object.entries(files).filter(([, file]) => file));
+
         setSaving(true);
         try {
+            let savedId = id;
             if (isEdit) {
                 await staff.update(id, payload);
                 if (can("roles.manage") && values.roles.join() !== (member?.roles ?? []).join()) {
                     await staff.setRoles(id, values.roles);
                 }
-                toast.success("Staff member updated.");
             } else {
-                const created = await staff.create({ ...payload, role: values.role, 
-                    // userID: values.userID, 
+                const created = await staff.create({ ...payload, role: values.role,
+                    // userID: values.userID,
                     password: values.password });
+                savedId = created._id ?? created.id;
                 toast.success(`${created.name} added. Username: ${created.username}`);
             }
+
+            // The staff member is saved; documents go up separately, so a failed
+            // upload keeps them and opens their edit page to try again.
+            if (Object.keys(uploads).length) {
+                try {
+                    await staff.uploadDocuments(savedId, uploads);
+                } catch (e) {
+                    toast.error(`Staff member saved, but the documents were not uploaded: ${errorMessage(e)}`);
+                    if (!isEdit) navigate(`/staff/${savedId}/edit`, { replace: true });
+                    return;
+                }
+            }
+            if (isEdit) toast.success("Staff member updated.");
             navigate("/staff");
         } catch (e) {
             Object.entries(fieldErrors(e)).forEach(([field, messages]) => setError(field, { message: messages[0] }));
@@ -198,6 +283,26 @@ const StaffForm = () => {
 
                 <Card label="Address" style={{ marginTop: 16 }}>
                     <AddressFields control={control} setValue={setValue} prefix="address" required />
+                </Card>
+
+                <Card label="Photo & documents" style={{ marginTop: 16 }}>
+                    <Grid container spacing={2}>
+                        {DOCUMENTS.map((doc) => (
+                            <Grid item xs={12} sm={4} key={doc.field}>
+                                <DocumentPicker
+                                    doc={doc}
+                                    saved={member?.[doc.field]}
+                                    chosen={files[doc.field]}
+                                    onChoose={chooseFile(doc.field)}
+                                    onRemove={() => removeDocument(doc.field, doc.label)}
+                                    disabled={saving}
+                                />
+                            </Grid>
+                        ))}
+                    </Grid>
+                    <p style={{ fontSize: 12, color: "#8a9baa", margin: "10px 0 0" }}>
+                        Uploaded when you {isEdit ? "save changes" : "register the staff member"}. Only people who can open the staff record see the Aadhaar card and police verification.
+                    </p>
                 </Card>
 
                 {/* <Card
