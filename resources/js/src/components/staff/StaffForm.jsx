@@ -107,7 +107,7 @@ const StaffForm = () => {
             // userID: "",
             role: "", roles: [], mobile: "", 
             // alternate_mobile: "",
-            email: "", age: "", daily_salary: "",
+            email: "", age: "", experience: "", daily_salary: "",
             password: "", confirm_password: "", 
             // identity_type: "", identity_number: "",
             address: EMPTY_ADDRESS
@@ -132,7 +132,7 @@ const StaffForm = () => {
                 reset({
                     name: u.name ?? "", mobile: u.mobile ?? "", 
                     // alternate_mobile: u.alternate_mobile ?? "",
-                    email: u.email ?? "", age: u.age ?? "", roles: u.roles ?? [],
+                    email: u.email ?? "", age: u.age ?? "", experience: u.experience ?? "", roles: u.roles ?? [],
                     daily_salary: u.daily_salary ?? "",
                     // identity_type: u.identity_type ?? "", identity_number: u.identity_number ?? "",
                     address: { ...EMPTY_ADDRESS, ...(u.address ?? {}) },
@@ -158,7 +158,8 @@ const StaffForm = () => {
                 // identity_type: values.identity_type, identity_number: values.identity_number,
             }),
             address: compact(values.address),
-            // Sent even when cleared, so a salary can be removed.
+            // Sent even when cleared, so it can be removed.
+            experience: values.experience?.trim() || null,
             daily_salary: values.daily_salary === "" || values.daily_salary === null ? null : Number(values.daily_salary),
             // permanent_address: compact(sameAddress ? values.temporary_address : values.permanent_address),
         };
@@ -226,6 +227,15 @@ const StaffForm = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <RHFTextField name="mobile" control={control} label="Mobile (without country code) *" rules={{ required: "Mobile is required", pattern: { value: /^\+?[\d\s-]{6,20}$/, message: "Enter the number using digits" } }} />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <RHFTextField
+                                name="experience"
+                                control={control}
+                                label="Experience"
+                                placeholder="e.g. 5 years, ICU and home care"
+                                inputProps={{ maxLength: 300 }}
+                            />
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <RHFTextField

@@ -56,6 +56,24 @@ class AccountService
         return $user->profile_image;
     }
 
+    /** The user's own identity documents (hidden from every list; see User::PRIVATE_FIELDS). */
+    public function documents(User $user): array
+    {
+        return [
+            'profile_image' => $user->profile_image,
+            'aadhaar_card' => $user->aadhaar_card,
+            'police_verification' => $user->police_verification,
+        ];
+    }
+
+    /** The user's own Aadhaar card (image or PDF), replacing any earlier one. */
+    public function saveAadhaarCard(User $user, UploadedFile $file): array
+    {
+        $user->update(['aadhaar_card' => $this->files->storeUpload($file, "users/{$user->username}/documents")]);
+
+        return $this->documents($user);
+    }
+
     public function submitFeedback(User $user, string $feedback): Feedback
     {
         return Feedback::create(['username' => $user->username, 'feedback' => $feedback]);

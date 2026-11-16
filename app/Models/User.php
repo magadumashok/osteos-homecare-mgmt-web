@@ -36,7 +36,7 @@ class User extends Authenticatable implements JWTSubject
         'country', 'region', 'city', 'address',
         'address',  'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
-        'daily_salary', 'aadhaar_card', 'police_verification',
+        'daily_salary', 'aadhaar_card', 'police_verification', 'experience',
     ];
 
     /** Staff documents an admin uploads: [field => label]. */

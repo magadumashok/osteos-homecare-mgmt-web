@@ -88,7 +88,7 @@ class StaffService
         }
 
         return User::create([
-            ...array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'age', 'address', 'address', 'password'])),
+            ...array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'age', 'experience', 'address', 'password'])),
             'daily_salary' => isset($data['daily_salary']) ? (float) $data['daily_salary'] : null,
             'identity_number' => $data['identity_number'] ?? $data['id'] ?? null,
             'username' => $username,
@@ -113,7 +113,7 @@ class StaffService
             }
         }
 
-        $changes = array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'age', 'address']));
+        $changes = array_intersect_key($data, array_flip(['name', 'email', 'mobile', 'age', 'experience', 'address']));
         if (array_key_exists('daily_salary', $data)) {
             $changes['daily_salary'] = $data['daily_salary'] === null ? null : (float) $data['daily_salary'];
         }

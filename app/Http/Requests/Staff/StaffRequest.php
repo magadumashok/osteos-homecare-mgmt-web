@@ -23,6 +23,8 @@ class StaffRequest extends FormRequest
             // 'alternate_mobile' => ['nullable', 'string', Rules::MOBILE],
             'email' => ['nullable', 'email', 'max:190'],
             'age' => ['nullable', 'integer', 'min:14', 'max:100'],
+            // Free text, e.g. "5 years, ICU".
+            'experience' => ['nullable', 'string', 'max:300'],
             // Pay for one day worked (a day with a completed sign in and sign out).
             'daily_salary' => ['nullable', 'numeric', 'min:0', 'max:10000000'],
             // 'identity_type' => ['nullable', 'string', 'max:60'],

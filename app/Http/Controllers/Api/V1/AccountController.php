@@ -45,6 +45,20 @@ class AccountController extends Controller
         return $this->response(true, 'Profile photo updated.', 200, ['profile_image' => $url]);
     }
 
+    /** The signed-in user's profile photo, Aadhaar card and police verification links. */
+    public function documents(Request $request): JsonResponse
+    {
+        return $this->response(true, '', 200, $this->account->documents($request->user()));
+    }
+
+    /** Staff upload their own Aadhaar card (photo or PDF). */
+    public function saveAadhaarCard(Request $request): JsonResponse
+    {
+        $file = $request->validate(['file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', Rules::upload()]])['file'];
+
+        return $this->response(true, 'Aadhaar card uploaded.', 200, $this->account->saveAadhaarCard($request->user(), $file));
+    }
+
     public function feedback(Request $request): JsonResponse
     {
         $text = $request->validate(['feedback' => ['required', 'string', 'max:5000']])['feedback'];

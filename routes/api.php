@@ -63,6 +63,8 @@ Route::prefix('v1')->group(function () {
         Route::post('account/feedback', [AccountController::class, 'feedback']);
         Route::put('account/password', [AuthController::class, 'changePassword']);
         Route::post('account/profile-image', [AccountController::class, 'saveProfileImage']);
+        Route::get('account/documents', [AccountController::class, 'documents']);
+        Route::post('account/aadhaar-card', [AccountController::class, 'saveAadhaarCard']);
         Route::post('account/signature', [AccountController::class, 'saveSignature'])->middleware('permission:prescriptions.write');
         Route::post('video-calls', [AccountController::class, 'videoCall'])->middleware('permission:video.call');
         Route::get('staff/directory', [StaffController::class, 'directory']);
