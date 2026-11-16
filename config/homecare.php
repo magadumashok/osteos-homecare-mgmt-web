@@ -70,9 +70,10 @@ return [
     |
     | Duty times are local to the homecare center. Sign-in is allowed from
     | `signin_early_minutes` before the start time to `signin_late_minutes`
-    | after it, and sign-out from `signout_early_minutes` before the end
-    | time on, with no closing time (a forgotten sign-out would otherwise
-    | block the staff member's next sign-in). The mobile app shows the same
+    | after it. Sign-out is open from `signout_early_minutes` before the end
+    | time to `signout_late_minutes` after it; signing out earlier needs a
+    | reason (admins get a push), and after it closes only a coordinator
+    | can sign the staff member out. The mobile app shows the same
     | limits (useDutyActions.js), so change both together. The center's
     | timezone comes from its country unless
     | HOMECARE_TIMEZONE is set (e.g. "Asia/Kolkata").
@@ -81,9 +82,10 @@ return [
 
     'attendance' => [
         'timezone' => env('HOMECARE_TIMEZONE'),
-        'signin_early_minutes' => (int) env('SIGNIN_EARLY_MINUTES', 10),
-        'signin_late_minutes' => (int) env('SIGNIN_LATE_MINUTES', 10),
-        'signout_early_minutes' => (int) env('SIGNOUT_EARLY_MINUTES', 10),
+        'signin_early_minutes' => (int) env('SIGNIN_EARLY_MINUTES', 30),
+        'signin_late_minutes' => (int) env('SIGNIN_LATE_MINUTES', 30),
+        'signout_early_minutes' => (int) env('SIGNOUT_EARLY_MINUTES', 30),
+        'signout_late_minutes' => (int) env('SIGNOUT_LATE_MINUTES', 30),
     ],
 
     /*

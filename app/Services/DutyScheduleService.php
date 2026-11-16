@@ -211,9 +211,9 @@ class DutyScheduleService
     }
 
     /**
-     * End a visit: only after signing in, and from a few minutes before the
-     * session's end time on (a coordinator signing someone else out skips
-     * the time check).
+     * End a visit: only after signing in, within the sign-out window around
+     * the session's end time (see signOutWindow: earlier needs a reason,
+     * later is refused). A coordinator signing someone else out skips it.
      * The staff member's day rate is kept with the completed visit.
      *
      * @throws ValidationException
@@ -233,22 +233,20 @@ class DutyScheduleService
         }
 
         $now = CarbonImmutable::now($this->tenants->timezone());
-
-        if ($enforceWindow) {
-            [, $end] = $this->interval($duty);
-            $from = $end->subMinutes(config('homecare.attendance.signout_early_minutes'));
-            if ($now->lt($from)) {
-                $this->refuse("You can sign out from {$from->format('g:i a')} on {$from->format('j M')}. The session ends at {$end->format('g:i a')}.");
-            }
-        }
+        $early = $enforceWindow ? $this->signOutWindow($this->interval($duty)[1], $now, $data, 'session') : null;
 
         $duty->update([
+            ...$this->earlySignOutFields($early),
             'sign_out' => true,
             'signout_time' => $now->format('H:i'),
             'signout_latitude' => $data['signout_latitude'] ?? null,
             'signout_longitude' => $data['signout_longitude'] ?? null,
             'daily_salary' => $this->dayRate($duty->staff_id),
         ]);
+
+        if ($early) {
+            $this->notifyEarlySignOut($duty, $early);
+        }
     }
 
     /**
@@ -310,9 +308,10 @@ class DutyScheduleService
     }
 
     /**
-     * End the open day of a 24-hour duty: from a few minutes before the
-     * day's start time the next day (handover). Without a `day_start_time`,
-     * at any time. The day stays the one signed in on.
+     * End the open day of a 24-hour duty: within the sign-out window around
+     * the day's start time the next day (handover; see signOutWindow).
+     * Without a `day_start_time`, at any time. The day stays the one
+     * signed in on.
      *
      * @throws ValidationException
      */
@@ -321,15 +320,12 @@ class DutyScheduleService
         $day = $this->openDay($duty) ?? $this->refuse('Sign in for the day first.');
         $now = CarbonImmutable::now($this->tenants->timezone());
 
-        if ($enforceWindow && filled($duty->day_start_time)) {
-            $end = $duty->dayEndsAt($day->date, $now->getTimezone()->getName());
-            $from = $end->subMinutes(config('homecare.attendance.signout_early_minutes'));
-            if ($now->lt($from)) {
-                $this->refuse("You can sign out from {$from->format('g:i a')} on {$from->format('j M')}. The 24 hours end at {$end->format('g:i a')}.");
-            }
-        }
+        $early = $enforceWindow && filled($duty->day_start_time)
+            ? $this->signOutWindow($duty->dayEndsAt($day->date, $now->getTimezone()->getName()), $now, $data, '24 hours')
+            : null;
 
         $day->update([
+            ...$this->earlySignOutFields($early),
             'sign_out' => true,
             'signout_time' => $now->format('H:i'),
             'signout_date' => $now->format('Y-m-d'),
@@ -337,6 +333,70 @@ class DutyScheduleService
             'signout_longitude' => $data['signout_longitude'] ?? null,
             'daily_salary' => $this->dayRate($duty->staff_id),
         ]);
+
+        if ($early) {
+            $this->notifyEarlySignOut($duty, $early);
+        }
+    }
+
+    /**
+     * Check a staff member's own sign-out against the window around $end:
+     * open from `signout_early_minutes` before to `signout_late_minutes`
+     * after. Earlier is allowed only with an `early_reason`, which is
+     * returned (with when it happened) to record and send to the admins.
+     * Later is refused: a coordinator signs them out instead.
+     *
+     * @return array{reason: string, end: CarbonImmutable, at: CarbonImmutable}|null
+     *
+     * @throws ValidationException
+     */
+    private function signOutWindow(CarbonImmutable $end, CarbonImmutable $now, array $data, string $what): ?array
+    {
+        $from = $end->subMinutes(config('homecare.attendance.signout_early_minutes'));
+        $until = $end->addMinutes(config('homecare.attendance.signout_late_minutes'));
+
+        if ($now->gt($until)) {
+            $this->refuse("Sign-out closed at {$until->format('g:i a')} on {$until->format('j M')}. Ask your coordinator to sign you out.");
+        }
+        if ($now->gte($from)) {
+            return null;
+        }
+
+        $reason = trim((string) ($data['early_reason'] ?? ''));
+        if ($reason === '') {
+            $this->refuse("The {$what} ends at {$end->format('g:i a')}. To sign out before {$from->format('g:i a')}, give a reason for leaving early.");
+        }
+
+        return ['reason' => $reason, 'end' => $end, 'at' => $now];
+    }
+
+    /** What an early sign-out records on the duty (or day); clears it otherwise. */
+    private function earlySignOutFields(?array $early): array
+    {
+        return [
+            'early_signout' => (bool) $early,
+            'early_signout_reason' => $early['reason'] ?? null,
+        ];
+    }
+
+    /** Push to the center's admins (and owner) that someone left a duty early, and why. */
+    private function notifyEarlySignOut(StaffDutySchedule $duty, array $early): void
+    {
+        $staff = $this->users->find($duty->staff_id);
+        $who = $staff?->name ?: $duty->staff_id;
+        $patient = $this->patients->find($duty->patient_id)?->patient_name ?? $duty->patient_id;
+        $minutes = (int) round($early['at']->diffInMinutes($early['end'], true));
+
+        $this->users->withRole('admin')
+            ->push($this->users->owner())
+            ->filter()
+            ->unique('username')
+            ->each(fn (User $admin) => $this->push->notify(
+                $admin,
+                'Early sign-out',
+                "{$who} signed out from {$patient} at {$early['at']->format('g:i a')}, {$minutes} min before the end ({$early['end']->format('g:i a')}). Reason: {$early['reason']}",
+                ['type' => 'early_signout', 'duty_id' => (string) $duty->getKey()],
+            ));
     }
 
     /** The day of a 24-hour duty signed in to and not yet signed out of. */
@@ -387,6 +447,8 @@ class DutyScheduleService
             $duty->signin_time = $day?->signin_time ?? '';
             $duty->sign_out = (bool) $day?->sign_out;
             $duty->signout_time = $day?->signout_time ?? '';
+            $duty->early_signout = (bool) $day?->early_signout;
+            $duty->early_signout_reason = $day?->early_signout_reason;
         });
     }
 

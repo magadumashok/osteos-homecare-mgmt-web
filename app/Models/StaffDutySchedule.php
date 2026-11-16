@@ -43,6 +43,8 @@ class StaffDutySchedule extends TenantModel
         'service_package', 'fees', 'services',
         'sign_in', 'signin_time', 'signin_latitude', 'signin_longitude',
         'sign_out', 'signout_time', 'signout_latitude', 'signout_longitude',
+        // Signed out before the window opened, and why (admins were told).
+        'early_signout', 'early_signout_reason',
         'not_attended', 'not_attended_reason', 'specimen_images',
         'live_in', 'skipped_dates', 'covers_duty_id', 'presence_photos',
         // The staff member's day rate when they signed out (for salary).
@@ -55,6 +57,7 @@ class StaffDutySchedule extends TenantModel
         return [
             'sign_in' => false, 'signin_time' => '',
             'sign_out' => false, 'signout_time' => '',
+            'early_signout' => false, 'early_signout_reason' => null,
             'not_attended' => false, 'not_attended_reason' => '',
         ];
     }

@@ -18,6 +18,8 @@ class DutyDay extends TenantModel
         'duty_id', 'patient_id', 'staff_id', 'date',
         'sign_in', 'signin_time', 'signin_latitude', 'signin_longitude',
         'sign_out', 'signout_time', 'signout_date', 'signout_latitude', 'signout_longitude',
+        // Signed out before the window opened, and why (admins were told).
+        'early_signout', 'early_signout_reason',
         'daily_salary',
     ];
 }

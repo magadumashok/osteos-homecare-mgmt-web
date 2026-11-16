@@ -103,10 +103,11 @@ class DutyScheduleController extends Controller
         return $this->response(true, 'Signed in.');
     }
 
-    /** After signing in, from the session's end time on. */
+    /** After signing in, around the session's end time; earlier with `early_reason`. */
     public function signOut(Request $request, string $id): JsonResponse
     {
         $data = $request->validate([
+            'early_reason' => ['nullable', 'string', 'max:1000'],
             'signout_time' => ['nullable', Rules::TIME],
             'signout_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'signout_longitude' => ['nullable', 'numeric', 'between:-180,180'],

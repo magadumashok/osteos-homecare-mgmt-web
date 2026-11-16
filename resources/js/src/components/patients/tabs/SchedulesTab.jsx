@@ -165,7 +165,18 @@ const SchedulesTab = ({ patient }) => {
         { header: "Date", accessorKey: "date", cell: ({ row }) => dutyDates(row.original) },
         { header: "Time", id: "time", cell: ({ row }) => dutyTime(row.original) },
         { header: "Staff", accessorKey: "staff_name", cell: ({ row }) => <>{row.original.staff_name ?? row.original.staff_id}<div style={{ fontSize: 11, color: colors.muted }}>{humanize(row.original.role)}</div></> },
-        { header: "Signed in / out", id: "attendance", cell: ({ row }) => `${fmtTime(row.original.signin_time)} / ${fmtTime(row.original.signout_time)}` },
+        {
+            header: "Signed in / out",
+            id: "attendance",
+            cell: ({ row }) => (
+                <>
+                    {`${fmtTime(row.original.signin_time)} / ${fmtTime(row.original.signout_time)}`}
+                    {row.original.early_signout && (
+                        <div style={{ fontSize: 12, color: "#c0392b" }}>Left early: {row.original.early_signout_reason || "no reason"}</div>
+                    )}
+                </>
+            ),
+        },
         { header: "Status", id: "status", cell: ({ row }) => <>{dutyStatus(row.original)}{row.original.not_attended_reason && <div style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>{row.original.not_attended_reason}</div>}</> },
         {
             header: "Actions",

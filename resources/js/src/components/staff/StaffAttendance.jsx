@@ -68,7 +68,20 @@ const StaffAttendance = () => {
         { header: "Patient", accessorKey: "patient_name", cell: ({ row }) => row.original.patient_name ?? row.original.patient_id },
         { header: "Duty", id: "slot", cell: ({ row }) => dutyTime(row.original) },
         { header: "Signed in", accessorKey: "signin_time", cell: ({ row }) => fmtTime(row.original.signin_time) },
-        { header: "Signed out", accessorKey: "signout_time", cell: ({ row }) => fmtTime(row.original.signout_time) },
+        {
+            header: "Signed out",
+            accessorKey: "signout_time",
+            cell: ({ row }) => (
+                <>
+                    {fmtTime(row.original.signout_time)}
+                    {row.original.early_signout && (
+                        <div style={{ fontSize: 12, color: "#c0392b" }} title={row.original.early_signout_reason ?? ""}>
+                            Left early: {row.original.early_signout_reason || "no reason"}
+                        </div>
+                    )}
+                </>
+            ),
+        },
         { header: "Status", id: "status", cell: ({ row }) => dutyStatus(row.original) },
         { header: "Reason", accessorKey: "not_attended_reason", cell: ({ row }) => row.original.not_attended_reason || "—" },
         {
