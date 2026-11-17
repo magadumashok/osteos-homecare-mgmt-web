@@ -23,7 +23,8 @@ const digits = (v) => String(v ?? "").replace(/[\s-]/g, "");
 // Uploaded after the staff member is saved (POST staff/{id}/documents).
 const DOCUMENTS = [
     { field: "profile_image", label: "Profile photo", accept: "image/*", hint: "JPG or PNG" },
-    { field: "aadhaar_card", label: "Aadhaar card", accept: "image/*,application/pdf", hint: "Image or PDF" },
+    // A photo, not a PDF: it goes into the staff profile PDF sent to patients.
+    { field: "aadhaar_card", label: "Aadhaar card", accept: "image/jpeg,image/png,image/webp", hint: "Photo of the card (JPG or PNG)" },
     { field: "police_verification", label: "Police verification", accept: "image/*,application/pdf", hint: "Image or PDF" },
 ];
 const isPdf = (url) => /\.pdf($|\?)/i.test(url ?? "");
@@ -311,7 +312,7 @@ const StaffForm = () => {
                         ))}
                     </Grid>
                     <p style={{ fontSize: 12, color: "#8a9baa", margin: "10px 0 0" }}>
-                        Uploaded when you {isEdit ? "save changes" : "register the staff member"}. Only people who can open the staff record see the Aadhaar card and police verification.
+                        Uploaded when you {isEdit ? "save changes" : "register the staff member"}. Only people who can open the staff record see the Aadhaar card and police verification. With a photo and Aadhaar card, a profile PDF (photo, name, experience, Aadhaar) is sent to patients with their duty WhatsApp.
                     </p>
                 </Card>
 

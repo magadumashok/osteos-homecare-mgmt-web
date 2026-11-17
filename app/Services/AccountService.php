@@ -10,7 +10,10 @@ use Illuminate\Support\Str;
 /** Things users do to their own account. */
 class AccountService
 {
-    public function __construct(private readonly FileStorageService $files) {}
+    public function __construct(
+        private readonly FileStorageService $files,
+        private readonly StaffProfilePdfService $profilePdf,
+    ) {}
 
     /**
      * One device per account. A device that changes accounts without
@@ -52,6 +55,7 @@ class AccountService
         $user->update([
             'profile_image' => $this->files->storeUpload($image, "users/{$user->username}/profile"),
         ]);
+        $this->profilePdf->refresh($user);
 
         return $user->profile_image;
     }
@@ -66,10 +70,11 @@ class AccountService
         ];
     }
 
-    /** The user's own Aadhaar card (image or PDF), replacing any earlier one. */
+    /** The user's own Aadhaar card (a photo of it), replacing any earlier one. */
     public function saveAadhaarCard(User $user, UploadedFile $file): array
     {
         $user->update(['aadhaar_card' => $this->files->storeUpload($file, "users/{$user->username}/documents")]);
+        $this->profilePdf->refresh($user);
 
         return $this->documents($user);
     }

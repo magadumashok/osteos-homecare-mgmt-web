@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -56,6 +57,51 @@ class FileStorageService
         $this->disk()->put($this->path($directory).'/'.$name, $binary);
 
         return $this->url($directory, $name);
+    }
+
+    /** Store generated content (e.g. a PDF built on the server) under $name. */
+    public function put(string $content, string $directory, string $name): string
+    {
+        $name = $this->safeName($name, pathinfo($name, PATHINFO_EXTENSION) ?: 'bin');
+        $this->disk()->put($this->path($directory).'/'.$name, $content);
+
+        return $this->url($directory, $name);
+    }
+
+    /**
+     * The bytes of a stored file, by the URL it was saved under: read from
+     * the documents disk, or downloaded when it lives elsewhere (older
+     * uploads). Null when it cannot be read.
+     */
+    public function read(?string $url): ?string
+    {
+        if (blank($url)) {
+            return null;
+        }
+
+        try {
+            $relative = $this->relativeUrl($url);
+            if ($relative !== null) {
+                return $this->disk()->get(rawurldecode($relative));
+            }
+
+            $response = Http::timeout(15)->get($url);
+
+            return $response->successful() ? $response->body() : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * "https://<documents url>/<homecare>/users/x/file.pdf" → "<homecare>/users/x/file.pdf"
+     * (still URL-encoded), or null for a URL outside the documents store.
+     */
+    public function relativeUrl(?string $url): ?string
+    {
+        $base = rtrim((string) config('homecare.documents.url'), '/').'/';
+
+        return $url && str_starts_with($url, $base) ? substr($url, strlen($base)) : null;
     }
 
     /** "patients/hcp001/documents" → "<homecare>/patients/hcp001/documents". */

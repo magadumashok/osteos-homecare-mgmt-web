@@ -58,14 +58,18 @@ class StaffController extends Controller
         return $this->response(true, '', 200, $this->staff->findOrFail($id)->makeVisible(User::PRIVATE_FIELDS));
     }
 
-    /** Upload a profile photo (image), Aadhaar card and police verification (image or PDF). */
+    /**
+     * Upload a profile photo and Aadhaar card (images: they go into the staff
+     * profile PDF sent to patients) and a police verification (image or PDF).
+     */
     public function uploadDocuments(Request $request, string $id): JsonResponse
     {
-        $document = ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', Rules::upload()];
         $uploads = array_filter($request->validate([
             'profile_image' => ['nullable', 'image', Rules::upload()],
-            'aadhaar_card' => $document,
-            'police_verification' => $document,
+            'aadhaar_card' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', Rules::upload()],
+            'police_verification' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', Rules::upload()],
+        ], [
+            'aadhaar_card.mimes' => 'Upload the Aadhaar card as a photo (JPG or PNG), not a PDF.',
         ]));
         if (! $uploads) {
             throw ValidationException::withMessages(['file' => 'Choose a file to upload.']);

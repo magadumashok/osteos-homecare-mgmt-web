@@ -30,11 +30,13 @@ class StaffService
         private readonly AuthService $auth,
         private readonly ReferenceDataService $reference,
         private readonly FileStorageService $files,
+        private readonly StaffProfilePdfService $profilePdf,
     ) {}
 
     /**
      * Save uploaded staff documents (profile photo, Aadhaar card, police
      * verification; see User::STAFF_DOCUMENTS). A new upload replaces the old.
+     * The staff profile PDF for patients is rebuilt from the photo and Aadhaar.
      *
      * @param  array<string, UploadedFile>  $uploads
      */
@@ -45,6 +47,7 @@ class StaffService
             $changes[$field] = $this->files->storeUpload($file, "users/{$user->username}/documents");
         }
         $user->update($changes);
+        $this->profilePdf->refresh($user);
 
         return $user;
     }
@@ -52,6 +55,7 @@ class StaffService
     public function removeDocument(User $user, string $field): User
     {
         $user->update([$field => null]);
+        $this->profilePdf->refresh($user);
 
         return $user;
     }
@@ -122,6 +126,8 @@ class StaffService
         }
 
         $user->update($changes);
+        // The name and experience are on the staff profile PDF.
+        $this->profilePdf->refresh($user);
 
         return $user;
     }

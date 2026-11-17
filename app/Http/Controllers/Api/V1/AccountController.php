@@ -51,10 +51,13 @@ class AccountController extends Controller
         return $this->response(true, '', 200, $this->account->documents($request->user()));
     }
 
-    /** Staff upload their own Aadhaar card (photo or PDF). */
+    /** Staff upload their own Aadhaar card: a photo (it goes into the staff profile PDF). */
     public function saveAadhaarCard(Request $request): JsonResponse
     {
-        $file = $request->validate(['file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', Rules::upload()]])['file'];
+        $file = $request->validate(
+            ['file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', Rules::upload()]],
+            ['file.mimes' => 'Upload the Aadhaar card as a photo (JPG or PNG), not a PDF.'],
+        )['file'];
 
         return $this->response(true, 'Aadhaar card uploaded.', 200, $this->account->saveAadhaarCard($request->user(), $file));
     }

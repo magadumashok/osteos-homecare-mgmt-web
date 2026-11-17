@@ -30,6 +30,7 @@ class DutyScheduleService
         private readonly WhatsAppService $whatsapp,
         private readonly PushNotificationService $push,
         private readonly FileStorageService $files,
+        private readonly StaffProfilePdfService $profilePdf,
     ) {}
 
     /** Today's date at the center (Y-m-d). */
@@ -715,6 +716,23 @@ class DutyScheduleService
      * Which template is used depends on whether the patient is on a
      * service package (the package and fee are then included).
      */
+    /**
+     * The duty WhatsApp to the patient. When the staff member has both a
+     * profile photo and an Aadhaar card, and a "<template>_with_profile"
+     * template (same text plus a document header "<documents url>/{{n}}")
+     * is configured, that one goes instead, with their staff profile PDF
+     * attached: its path is the last variable.
+     */
+    private function sendToPatient(Patient $patient, ?User $staff, string $template, array $variables): void
+    {
+        $withProfile = "{$template}_with_profile";
+        $profile = config("homecare.twilio.templates.{$withProfile}") ? $this->profilePdf->forWhatsApp($staff) : null;
+
+        $profile
+            ? $this->whatsapp->send($patient->mobile, $withProfile, [...$variables, $profile])
+            : $this->whatsapp->send($patient->mobile, $template, $variables);
+    }
+
     private function notifyAssignment(StaffDutySchedule $duty, Patient $patient, ?User $driver, bool $rescheduled): void
     {
         $staff = $this->users->find($duty->staff_id);
@@ -737,10 +755,10 @@ class DutyScheduleService
         if ($patient->service_package) {
             $package = [$patient->service_package, trim($patient->fees.' '.config('homecare.twilio.currency'))];
             $this->whatsapp->send($this->reference->userNumber($staff), $hasDriver ? 'staff_duty_with_package' : 'staff_duty_with_package_no_driver', [...$toStaff, ...$package]);
-            $this->whatsapp->send($patient->mobile, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty_with_package', $rescheduled ? $toPatient : [...$toPatient, ...$package]);
+            $this->sendToPatient($patient, $staff, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty_with_package', $rescheduled ? $toPatient : [...$toPatient, ...$package]);
         } else {
             $this->whatsapp->send($this->reference->userNumber($staff), $hasDriver ? 'staff_duty' : 'staff_duty_no_driver', $toStaff);
-            $this->whatsapp->send($patient->mobile, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty', $toPatient);
+            $this->sendToPatient($patient, $staff, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty', $toPatient);
         }
 
         if ($driver) {

@@ -37,6 +37,8 @@ class User extends Authenticatable implements JWTSubject
         'address',  'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
         'daily_salary', 'aadhaar_card', 'police_verification', 'experience',
+        // Photo + Aadhaar + name + experience, sent to patients (StaffProfilePdfService).
+        'staff_profile_pdf', 'staff_profile_pdf_hash',
     ];
 
     /** Staff documents an admin uploads: [field => label]. */
@@ -47,7 +49,7 @@ class User extends Authenticatable implements JWTSubject
     ];
 
     /** Shown only on the staff record (StaffController::show), never in lists. */
-    public const PRIVATE_FIELDS = ['daily_salary', 'aadhaar_card', 'police_verification'];
+    public const PRIVATE_FIELDS = ['daily_salary', 'aadhaar_card', 'police_verification', 'staff_profile_pdf'];
 
     /**
      * `daily_salary` is pay per day worked. Hidden because users are listed
@@ -60,6 +62,8 @@ class User extends Authenticatable implements JWTSubject
         'daily_salary',
         'aadhaar_card',
         'police_verification',
+        'staff_profile_pdf',
+        'staff_profile_pdf_hash',
     ];
 
     protected function casts(): array

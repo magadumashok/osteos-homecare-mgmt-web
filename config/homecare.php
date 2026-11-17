@@ -60,6 +60,15 @@ return [
             'patient_duty_rescheduled' => env('TWILIO_TPL_PATIENT_DUTY_RESCHEDULED', 'HX5fcd73ce4d1374210f6648a105e3740a'),
             'driver_duty' => env('TWILIO_TPL_DRIVER_DUTY', 'HX1d1f68f5c2e6cd111315a9cc917ddc33'),
             'driver_duty_rescheduled' => env('TWILIO_TPL_DRIVER_DUTY_RESCHEDULED', 'HX84d91dc968afd6604e8399dc85205f26'),
+
+            // The patient templates above plus the staff profile PDF (photo, Aadhaar,
+            // name, experience) as a document header. Each needs a Twilio template
+            // approved with the same text and variables, plus one last variable in
+            // the document URL: "https://hccsdoc.osteos.io/{{n}}". Until set, the
+            // plain template is sent (StaffProfilePdfService, DutyScheduleService).
+            'patient_duty_with_profile' => env('TWILIO_TPL_PATIENT_DUTY_WITH_PROFILE'),
+            'patient_duty_with_package_with_profile' => env('TWILIO_TPL_PATIENT_DUTY_WITH_PACKAGE_WITH_PROFILE'),
+            'patient_duty_rescheduled_with_profile' => env('TWILIO_TPL_PATIENT_DUTY_RESCHEDULED_WITH_PROFILE'),
         ],
     ],
 
