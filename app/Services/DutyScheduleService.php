@@ -752,14 +752,15 @@ class DutyScheduleService
         }
         $toPatient = [$patient->patient_name, $staffName, $homecare, $duty->date, $time];
 
+        // Only the nurse or caretaker is told the service and fees; the patient
+        // gets the same message either way (with the staff profile PDF when there is one).
         if ($patient->service_package) {
             $package = [$patient->service_package, trim($patient->fees.' '.config('homecare.twilio.currency'))];
             $this->whatsapp->send($this->reference->userNumber($staff), $hasDriver ? 'staff_duty_with_package' : 'staff_duty_with_package_no_driver', [...$toStaff, ...$package]);
-            $this->sendToPatient($patient, $staff, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty_with_package', $rescheduled ? $toPatient : [...$toPatient, ...$package]);
         } else {
             $this->whatsapp->send($this->reference->userNumber($staff), $hasDriver ? 'staff_duty' : 'staff_duty_no_driver', $toStaff);
-            $this->sendToPatient($patient, $staff, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty', $toPatient);
         }
+        $this->sendToPatient($patient, $staff, $rescheduled ? 'patient_duty_rescheduled' : 'patient_duty', $toPatient);
 
         if ($driver) {
             $this->whatsapp->send($this->reference->userNumber($driver), $rescheduled ? 'driver_duty_rescheduled' : 'driver_duty', [

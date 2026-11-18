@@ -49,8 +49,9 @@ class StaffProfilePdfService
                 return null;
             }
 
-            // A new name each time, so a CDN never serves the old copy.
-            $url = $this->files->put($pdf, "users/{$user->username}/profile", 'staff-profile-'.now()->format('YmdHis').'.pdf');
+            // "<homecare>/users/<username>/documents/user-profile-<time>.pdf": a new
+            // name each time, so a CDN or WhatsApp never serves the old copy.
+            $url = $this->files->put($pdf, "users/{$user->username}/documents", 'user-profile-'.now()->format('YmdHis').'.pdf');
             $user->update(['staff_profile_pdf' => $url, 'staff_profile_pdf_hash' => $hash]);
 
             return $url;

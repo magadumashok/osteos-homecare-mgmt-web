@@ -25,6 +25,9 @@ class StaffRequest extends FormRequest
             'age' => ['nullable', 'integer', 'min:14', 'max:100'],
             // Free text, e.g. "5 years, ICU".
             'experience' => ['nullable', 'string', 'max:300'],
+            // Care tasks a nurse or caretaker can do (the standard list plus any typed in).
+            'care_skills' => ['nullable', 'array', 'max:60'],
+            'care_skills.*' => ['string', 'max:120'],
             // Pay for one day worked (a day with a completed sign in and sign out).
             'daily_salary' => ['nullable', 'numeric', 'min:0', 'max:10000000'],
             // 'identity_type' => ['nullable', 'string', 'max:60'],

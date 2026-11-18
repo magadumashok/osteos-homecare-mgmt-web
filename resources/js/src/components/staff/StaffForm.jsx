@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
-import { Checkbox, FormControlLabel, Grid } from "@mui/material";
+import { Checkbox, FormControlLabel, Grid, TextField } from "@mui/material";
 import { toast } from "react-toastify";
 import RHFTextField from "../forms/RHFTextField";
 import RHFSelect from "../forms/RHFSelect";
@@ -9,13 +9,15 @@ import RHFMultiSelect from "../forms/RHFMultiSelect";
 import AddressFields from "../common/AddressFields";
 import { Button, Card, Loader, PageHeader } from "../common/ui";
 import usePermission from "../../hooks/usePermission";
-import { roles as rolesApi, staff } from "../../api/homecare";
+import { careLogs, roles as rolesApi, staff } from "../../api/homecare";
 import { errorMessage, fieldErrors } from "../../api/client";
 import { compact, humanize } from "../../utilities/format";
 import { onInvalid } from "../../utilities/formErrors";
 
 const ID_TYPES = ["Emirates ID", "Passport", "Aadhaar", "National ID", "Driving licence"].map((v) => ({ value: v, label: v }));
 const EMPTY_ADDRESS = { country: "", region: "", city: "", address: "" };
+// Roles whose form shows the "tasks they can do" checklist.
+const SKILLED_ROLES = ["nurse", "caretaker"];
 
 // "050 123-4567" → "0501234567" (the API takes digits only).
 const digits = (v) => String(v ?? "").replace(/[\s-]/g, "");
@@ -116,11 +118,30 @@ const StaffForm = () => {
     });
     // const userID = useWatch({ control, name: "userID" });
     const role = useWatch({ control, name: "role" });
+    const roles = useWatch({ control, name: "roles" });
+
+    // Tasks a nurse or caretaker can do: the standard care tasks (as on the
+    // duty form) plus any typed in, kept on the staff member as `care_skills`.
+    const showSkills = (isEdit ? roles ?? [] : [role]).some((r) => SKILLED_ROLES.includes(r));
+    const [taskOptions, setTaskOptions] = useState([]);
+    const [skills, setSkills] = useState([]);
+    const [customTask, setCustomTask] = useState("");
+    const toggleSkill = (task) => setSkills((list) => (list.includes(task) ? list.filter((t) => t !== task) : [...list, task]));
+    const addCustomTask = () => {
+        const task = customTask.trim();
+        if (!task) return;
+        setTaskOptions((list) => (list.includes(task) ? list : [...list, task]));
+        setSkills((list) => (list.includes(task) ? list : [...list, task]));
+        setCustomTask("");
+    };
 
     useEffect(() => {
         rolesApi.list()
             .then((list) => setRoleOptions(list.map((r) => ({ value: r.name, label: humanize(r.name) }))))
             .catch(() => setRoleOptions([]));
+        careLogs.tasks()
+            .then((list) => setTaskOptions((current) => [...(list ?? []), ...current.filter((t) => !(list ?? []).includes(t))]))
+            .catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -130,6 +151,10 @@ const StaffForm = () => {
             .then((u) => {
                 if (!active) return;
                 setMember(u);
+                const saved = u.care_skills ?? [];
+                setSkills(saved);
+                // Tasks typed in earlier show as options too.
+                setTaskOptions((current) => [...current, ...saved.filter((t) => !current.includes(t))]);
                 reset({
                     name: u.name ?? "", mobile: u.mobile ?? "", 
                     // alternate_mobile: u.alternate_mobile ?? "",
@@ -162,6 +187,7 @@ const StaffForm = () => {
             // Sent even when cleared, so it can be removed.
             experience: values.experience?.trim() || null,
             daily_salary: values.daily_salary === "" || values.daily_salary === null ? null : Number(values.daily_salary),
+            ...(showSkills ? { care_skills: skills } : {}),
             // permanent_address: compact(sameAddress ? values.temporary_address : values.permanent_address),
         };
 
@@ -291,6 +317,42 @@ const StaffForm = () => {
                         </Grid>
                     )}
                 </Card>
+
+                {showSkills && (
+                    <Card label="Tasks they can do" style={{ marginTop: 16 }}>
+                        <p style={{ fontSize: 13, color: "#5f6b7a", marginTop: 0 }}>
+                            Tick the care tasks this {isEdit ? "staff member" : humanize(role).toLowerCase()} is able to do.
+                        </p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0 16px" }}>
+                            {taskOptions.map((task) => (
+                                <FormControlLabel
+                                    key={task}
+                                    control={<Checkbox size="small" checked={skills.includes(task)} onChange={() => toggleSkill(task)} />}
+                                    label={<span style={{ fontSize: 13 }}>{task}</span>}
+                                />
+                            ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 8, maxWidth: 420 }}>
+                            <TextField
+                                size="small"
+                                fullWidth
+                                label="Other task"
+                                value={customTask}
+                                inputProps={{ maxLength: 120 }}
+                                onChange={(e) => setCustomTask(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        addCustomTask();
+                                    }
+                                }}
+                            />
+                            <Button variant="secondary" small onClick={addCustomTask} disabled={!customTask.trim()}>
+                                Add
+                            </Button>
+                        </div>
+                    </Card>
+                )}
 
                 <Card label="Address" style={{ marginTop: 16 }}>
                     <AddressFields control={control} setValue={setValue} prefix="address" required />

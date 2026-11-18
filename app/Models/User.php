@@ -37,6 +37,8 @@ class User extends Authenticatable implements JWTSubject
         'address',  'works_at',
         'specialization', 'firebase_token', 'digitalsignature', 'profile_image',
         'daily_salary', 'aadhaar_card', 'police_verification', 'experience',
+        // Care tasks a nurse or caretaker can do (see CareLog::DEFAULT_TASKS).
+        'care_skills',
         // Photo + Aadhaar + name + experience, sent to patients (StaffProfilePdfService).
         'staff_profile_pdf', 'staff_profile_pdf_hash',
     ];

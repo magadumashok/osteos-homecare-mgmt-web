@@ -17,8 +17,14 @@ class CareLog extends TenantModel
 
     public const SKIPPED = 'skipped';
 
-    /** Tasks offered when scheduling a caretaker; admins can add their own per duty. */
+    /**
+     * Tasks offered when scheduling a caretaker (admins can add their own per
+     * duty), and on the staff form for what a nurse or caretaker can do.
+     */
     public const DEFAULT_TASKS = [
+        'Diaper changing',
+        'Oral suction',
+        'RT feeding',
         'Bathing',
         'Feeding',
         'Preparing meals',
