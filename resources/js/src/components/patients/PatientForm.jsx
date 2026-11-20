@@ -6,10 +6,7 @@ import { toast } from "react-toastify";
 import RHFTextField from "../forms/RHFTextField";
 import RHFSelect from "../forms/RHFSelect";
 import { Button, Card, Loader, PageHeader } from "../common/ui";
-import {
-    patients as patientsApi,
-    reference as refApi,
-} from "../../api/homecare";
+import { patients as patientsApi } from "../../api/homecare";
 import * as reference from "../../api/reference";
 import { errorMessage, fieldErrors } from "../../api/client";
 import { compact } from "../../utilities/format";
@@ -52,15 +49,9 @@ const FIELDS = [
     "source_of_contact",
     "status",
     "service",
-    "service_package",
     "fees",
     "comments",
 ];
-
-// Service packages come from shared reference data; field names vary between imports.
-const packageName = (p) =>
-    p.name ?? p.package_name ?? p.service_package ?? p.title ?? "";
-const packageFees = (p) => p.fees ?? p.price ?? p.amount ?? "";
 
 // Options valued by name. Older patients have free-text states, so a saved
 // value that is not in the list is kept as an option.
@@ -85,7 +76,6 @@ const PatientForm = () => {
     const [regions, setRegions] = useState([]);
     const [cities, setCities] = useState([]);
     const [nationalities, setNationalities] = useState([]);
-    const [packages, setPackages] = useState([]);
 
     const { control, handleSubmit, reset, setValue, setError } = useForm({
         defaultValues: {
@@ -94,7 +84,6 @@ const PatientForm = () => {
         },
     });
     const service = useWatch({ control, name: "service" });
-    const chosenPackage = useWatch({ control, name: "service_package" });
     const country = useWatch({ control, name: "country" });
     const state = useWatch({ control, name: "state" });
     const city = useWatch({ control, name: "city" });
@@ -118,10 +107,6 @@ const PatientForm = () => {
                     })),
                 ),
             )
-            .catch(() => {});
-        refApi
-            .servicePackages()
-            .then((list) => setPackages(list ?? []))
             .catch(() => {});
     }, []);
 
@@ -180,20 +165,6 @@ const PatientForm = () => {
         () => namedOptions(cities, city),
         [cities, city],
     );
-
-    const packageOptions = useMemo(
-        () =>
-            packages
-                .map((p) => ({ value: packageName(p), label: packageName(p) }))
-                .filter((o) => o.value),
-        [packages],
-    );
-
-    // Picking a package fills in its fee (it can still be changed).
-    useEffect(() => {
-        const pkg = packages.find((p) => packageName(p) === chosenPackage);
-        if (pkg && packageFees(pkg) !== "") setValue("fees", packageFees(pkg));
-    }, [chosenPackage, packages, setValue]);
 
     const onSubmit = async ({ service_other: serviceOther, ...values }) => {
         if (values.service === "other" && !serviceOther.trim()) {
@@ -363,23 +334,7 @@ const PatientForm = () => {
                                 />
                             </Grid>
                         )}
-                        <Grid item xs={12} sm={6}>
-                            {packageOptions.length ? (
-                                <RHFSelect
-                                    name="service_package"
-                                    control={control}
-                                    label="Service package"
-                                    options={packageOptions}
-                                />
-                            ) : (
-                                <RHFTextField
-                                    name="service_package"
-                                    control={control}
-                                    label="Service package"
-                                />
-                            )}
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
+                        <Grid item xs={6} sm={6}>
                             <RHFTextField
                                 name="fees"
                                 control={control}
@@ -387,7 +342,7 @@ const PatientForm = () => {
                                 type="number"
                             />
                         </Grid>
-                        <Grid item xs={6} sm={3}>
+                        <Grid item xs={6} sm={6}>
                             <RHFSelect
                                 name="source_of_contact"
                                 control={control}
