@@ -44,7 +44,7 @@ const PatientList = () => {
             accessorFn: (p) => `${p.age ?? ""} ${p.gender ?? ""}`,
             cell: ({ row }) => [row.original.age, row.original.gender].filter(Boolean).join(" · ") || "—",
         },
-        { header: "Package", accessorKey: "service_package", cell: ({ row }) => row.original.service_package || "—" },
+        { header: "Service", accessorKey: "service", cell: ({ row }) => row.original.service || "—" },
         { header: "Status", id: "status", cell: ({ row }) => (locked(row.original) ? "—" : <ConsentBadges patient={row.original} />) },
         {
             header: "Discharge",
