@@ -248,7 +248,7 @@ class PatientService
 
         // } while (Patient::where('username', $username)->exists());
 
-        $exists = Patient::where('mobile', $data['mobile'])->exists();
+        $exists = Patient::where('mobile', '+91'.$data['mobile'])->exists();
         $username = $exists
             ? $prefix . substr($data['patient_name'], 0, 3) . $data['mobile']
             : $prefix . $data['mobile'];
