@@ -56,7 +56,7 @@ const PatientPage = () => {
                     <p style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: ".8px", margin: "0 0 2px" }}>Patient · {patient.username}</p>
                     <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: colors.ink, margin: 0 }}>{patient.patient_name}</h2>
                     <div style={{ fontSize: 13, color: colors.body, marginTop: 4 }}>
-                        {[patient.gender, patient.age && `${patient.age} yrs`, patient.mobile, patient.service_package].filter(Boolean).join(" · ")}
+                        {[patient.gender, patient.age && `${patient.age} yrs`, patient.mobile, patient.service].filter(Boolean).join(" · ")}
                     </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                         <ConsentBadges patient={patient} />

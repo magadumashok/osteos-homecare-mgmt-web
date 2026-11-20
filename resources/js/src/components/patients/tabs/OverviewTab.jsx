@@ -76,7 +76,7 @@ const OverviewTab = ({ patient: p }) => {
                             <span>{s.service_package ?? s.name ?? "Service"}</span>
                             <strong>{fmtMoney(s.fees)}</strong>
                         </div>
-                    )) : <p style={{ fontSize: 13, color: colors.muted, margin: 0 }}>{p.service_package ? `${p.service_package} · ${fmtMoney(p.fees)}` : "No service package."}</p>}
+                    )) : <p style={{ fontSize: 13, color: colors.muted, margin: 0 }}>{p.service ? [p.service, p.fees ? fmtMoney(p.fees) : null].filter(Boolean).join(" · ") : "No service chosen."}</p>}
                 </Card>
 
                 {can("vitals.view") && (
