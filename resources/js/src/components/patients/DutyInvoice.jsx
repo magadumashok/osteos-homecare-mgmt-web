@@ -17,10 +17,14 @@ const DutyInvoice = () => {
     if (!data) return <Loader />;
     const { patient: p, duty: d } = data;
 
-    const services = Array.isArray(d.services) && d.services.length
-        ? d.services
-        : d.service_package ? [{ service_package: d.service_package, fees: d.fees }] : [];
+    // const services = Array.isArray(d.services) && d.services.length
+    //     ? d.service
+    //     : d.service_package ? [{ service_package: d.service_package, fees: d.fees }] : [];
+    const service = d.service ? d.service : d.service_package ? d.service_package : "Service"; 
+    const services = [{service_package:service,fees:d.fees}]  
+    // const charge = d.fees;
     const total = services.reduce((sum, s) => sum + (Number(s.fees) || 0), 0);
+    // const total = charge;
 
     return (
         <PrintDocument>
@@ -34,6 +38,7 @@ const DutyInvoice = () => {
             <DocTable
                 head={["#", "Service", "Amount"]}
                 rows={services.length ? services.map((s, i) => [i + 1, s.service_package ?? s.name ?? "Service", fmtMoney(s.fees)]) : [["", "No services recorded for this visit", ""]]}
+                // rows ={service ? service : "No services recorded for this visit"}
                 foot={[["Total", fmtMoney(total), true]]}
             />
         </PrintDocument>

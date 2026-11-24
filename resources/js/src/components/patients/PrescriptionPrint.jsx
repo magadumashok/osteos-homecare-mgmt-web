@@ -24,8 +24,8 @@ const PrescriptionPrint = () => {
                 { label: "Patient", value: rx.patient_name },
                 { label: "Age / Gender", value: [rx.age, rx.gender].filter(Boolean).join(" · ") },
                 { label: "Mobile", value: rx.mobile },
-                { label: "ID number", value: rx.id_no },
-                { label: "Nationality", value: rx.nationality },
+                // { label: "ID number", value: rx.id_no },
+                // { label: "Nationality", value: rx.nationality },
             ]} />
             <DocTable
                 head={["#", ...fields.map(([, label]) => label)]}

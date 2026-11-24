@@ -55,8 +55,8 @@ const ConsentForm = () => {
                 { label: "Patient name", value: p.patient_name },
                 { label: "Gender", value: p.gender },
                 { label: "Mobile", value: p.mobile },
-                { label: "Date of birth", value: fmtDate(p.date_of_birth ?? p.birth_date) },
-                { label: "Nationality", value: p.nationality },
+                // { label: "Date of birth", value: fmtDate(p.date_of_birth ?? p.birth_date) },
+                // { label: "Nationality", value: p.nationality },
             ]} />
 
             <h4 style={{ fontSize: 14, margin: "24px 0 8px", color: colors.brandDark }}>General consent</h4>
