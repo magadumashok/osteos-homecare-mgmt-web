@@ -203,6 +203,7 @@ const StaffList = () => {
                 items={[
                     { label: "Total staff", value: members.length },
                     { label: "Nurses", value: counts.nurse ?? 0 },
+                    { label: "Caretakers", value: counts.caretaker ?? 0 },
                     {
                         label: "Physiotherapists",
                         value: counts.physiotherapist ?? 0,
